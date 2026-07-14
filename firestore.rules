@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Shared market roster. Any signed-in player may run maintenance
+    // (bankruptcies / new listings). Friendly-trust model.
+    match /market/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Player accounts. Everyone signed in can read (leaderboard),
+    // but you can only write your own doc, must start at 1000,
+    // and can never take cash negative.
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.cash == 1000;
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.cash is number
+        && request.resource.data.cash >= 0;
+
+      match /trades/{tradeId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}

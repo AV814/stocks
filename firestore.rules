@@ -34,7 +34,7 @@ service cloud.firestore {
     match /predictions/{predId} {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null
-        && request.auth.uid == "PASTE_YOUR_UID_HERE";
+        && request.auth.uid == "FfORyqwqoMYrmC9iAy8xYQevprG3";
 
       match /bets/{uid} {
         allow read: if request.auth != null;

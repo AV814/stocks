@@ -118,15 +118,55 @@ function buildGrid(winMult) {
   return { grid, winSym };
 }
 
+/* Pending tickets survive reloads: the outcome is decided (and the
+   price paid) at purchase, but the PRIZE only hits your balance once
+   the ticket is fully scratched — no peeking at the cash pill. */
+const SCRATCH_KEY = "vapor-scratch-pending";
+
+function saveScratch() {
+  if (!scratch || (scratch.done && scratch.paid)) { localStorage.removeItem(SCRATCH_KEY); return; }
+  localStorage.setItem(SCRATCH_KEY, JSON.stringify({
+    tierId: scratch.tier.id, grid: scratch.grid, mult: scratch.mult,
+    prize: scratch.prize, winSym: scratch.winSym,
+    revealed: [...scratch.revealed], done: scratch.done, paid: scratch.paid
+  }));
+}
+function loadScratch() {
+  try {
+    const raw = localStorage.getItem(SCRATCH_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    const tier = SCRATCH_TIERS.find((t) => t.id === s.tierId);
+    if (!tier || !Array.isArray(s.grid) || s.grid.length !== 9) { localStorage.removeItem(SCRATCH_KEY); return; }
+    scratch = { tier, grid: s.grid, mult: s.mult, prize: s.prize, winSym: s.winSym,
+                revealed: new Set(s.revealed || []), done: !!s.done, paid: !!s.paid };
+    if (scratch.done && !scratch.paid) payScratch(); // interrupted payout — retry
+  } catch { localStorage.removeItem(SCRATCH_KEY); }
+}
+
+async function payScratch() {
+  if (!scratch || !scratch.done || scratch.paid) return;
+  if (scratch.prize <= 0) { scratch.paid = true; saveScratch(); return; }
+  try {
+    await api.settle(scratch.prize, 0);
+    scratch.paid = true;
+    saveScratch();
+    if (scratch.mult >= 20) api.toast("SCRATCH JACKPOT", `${scratch.tier.name}: ${scratch.mult}x pays ${api.fmt(scratch.prize)}!`);
+  } catch (e) {
+    console.error("scratch payout failed, will retry", e);
+    setTimeout(payScratch, 4000);
+  }
+}
+
 async function buyScratch(tier) {
-  if (scratch && !scratch.done) return;
+  if (scratch && !(scratch.done && scratch.paid)) return;
   if (tier.price > api.getCash()) { alert("Not enough credits."); return; }
-  const mult = rollLadder();
-  const prize = tier.price * mult;
-  try { await api.settle(prize - tier.price, tier.price); }
+  try { await api.settle(-tier.price, tier.price); }   // price only — prize pays on full reveal
   catch (e) { alert(e.message); return; }
+  const mult = rollLadder();
   const { grid, winSym } = buildGrid(mult);
-  scratch = { tier, grid, mult, prize, winSym, revealed: new Set(), done: false };
+  scratch = { tier, grid, mult, prize: tier.price * mult, winSym, revealed: new Set(), done: false, paid: false };
+  saveScratch();
   renderCasino();
 }
 function revealCell(i) {
@@ -137,8 +177,11 @@ function revealCell(i) {
   if (cell) { cell.classList.add("revealed"); cell.textContent = scratch.grid[i]; }
   if (scratch.revealed.size === 9) {
     scratch.done = true;
-    if (scratch.mult >= 20) api.toast("SCRATCH JACKPOT", `${scratch.tier.name}: ${scratch.mult}x pays ${api.fmt(scratch.prize)}!`);
+    saveScratch();
+    payScratch();
     renderCasino();
+  } else {
+    saveScratch();
   }
 }
 
@@ -359,5 +402,6 @@ function renderCasino() {
 
 export function initCasino(apiIn) {
   api = apiIn;
+  loadScratch();
   return { render: renderCasino };
 }

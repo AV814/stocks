@@ -12,6 +12,7 @@ import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
 import { initCasino } from "./casino.js";
 import { initPredictions } from "./predictions.js";
 import { initSocial } from "./social.js";
+import { initLottery } from "./lottery.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,11 +50,18 @@ async function settle(delta, minStake = 0) {
   });
 }
 
+const lottery = initLottery({
+  db, fmt, toast,
+  me: () => me,
+  myDoc: () => myDoc,
+  el: () => $("#lotto-root")
+});
 const casino = initCasino({
   fmt, toast,
   getCash: () => myDoc?.cash || 0,
   settle,
-  el: () => $("#view-casino")
+  el: () => $("#view-casino"),
+  renderLotto: lottery.renderLotto
 });
 const predictions = initPredictions({
   db, fmt, toast, ADMIN_UID,
@@ -113,10 +121,12 @@ onAuthStateChanged(auth, (user) => {
   if (unsubUsers) { unsubUsers(); unsubUsers = null; }
   predictions.unsubscribePredictions();
   social.unsubscribeTransfers();
+  lottery.unsubscribeLottery();
   $("#tab-admin").classList.toggle("hidden", !user || user.uid !== ADMIN_UID);
   if (!user) return;
   predictions.subscribePredictions();
   social.subscribeTransfers();
+  lottery.subscribeLottery();
 
   unsubUser = onSnapshot(doc(db, "users", user.uid), async (snap) => {
     if (!snap.exists()) {

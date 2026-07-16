@@ -391,3 +391,64 @@ h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; colo
   .adm-cash-row { grid-template-columns: 1fr 90px; }
   .adm-cash-row input { grid-column: 1; }
 }
+
+/* ---------- scratch-offs ---------- */
+.scratch-name { font-family: var(--mono); font-weight: 700; margin-bottom: 14px; letter-spacing: 0.06em; }
+.scratch-grid {
+  display: grid; grid-template-columns: repeat(3, 84px); gap: 8px;
+  justify-content: center; touch-action: none;
+}
+.scratch-cell {
+  width: 84px; height: 84px; font-size: 34px; border-radius: 8px; border: 1px solid var(--line);
+  background: repeating-linear-gradient(45deg, #6b6f76, #6b6f76 6px, #7d828a 6px, #7d828a 12px);
+  cursor: pointer; user-select: none;
+}
+.scratch-cell.revealed {
+  background: var(--ink); animation: sc-pop 0.18s ease;
+}
+@keyframes sc-pop { from { transform: scale(0.85); opacity: 0.4; } }
+.scratch-shop { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.scratch-buy {
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  background: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; font-size: 13px;
+}
+.scratch-buy:hover { background: var(--panel-2); }
+.scratch-buy .muted { font-size: 11px; font-family: var(--mono); }
+
+/* ---------- VaporBall lottery ---------- */
+.lotto-jackpot {
+  text-align: center; background: var(--panel); border: 1px solid var(--amber);
+  border-radius: 10px; padding: 20px; margin-bottom: 14px;
+}
+.lotto-pot-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--amber); }
+.lotto-pot { font-family: var(--mono); font-size: 38px; font-weight: 700; color: var(--amber); margin: 4px 0 6px; }
+.lotto-pickbox, .lotto-slip, .lotto-mine, .lotto-last {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.pick-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+.pick-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pick {
+  min-width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--ink); color: var(--paper-dim); font-family: var(--mono); font-size: 13px;
+}
+.pick.on { background: var(--paper); color: var(--ink); font-weight: 700; border-color: var(--paper); }
+.pick.pb { border-color: var(--down); }
+.pick.pb.on { background: var(--down); color: var(--paper); border-color: var(--down); }
+.lotto-balls { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.ball {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%; margin-right: 4px;
+  background: var(--paper); color: var(--ink); font-family: var(--mono); font-weight: 700; font-size: 13px;
+}
+.ball.pb { background: var(--down); color: var(--paper); }
+.ball.hit { outline: 3px solid var(--up); outline-offset: 1px; }
+.lotto-ticket { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); flex-wrap: wrap; }
+.lotto-ticket:last-child { border-bottom: none; }
+.lotto-ticket .ball { width: 26px; height: 26px; font-size: 11px; }
+@media (max-width: 640px) {
+  .pick-grid { grid-template-columns: repeat(5, 1fr); }
+  .scratch-grid { grid-template-columns: repeat(3, 72px); }
+  .scratch-cell { width: 72px; height: 72px; font-size: 28px; }
+}

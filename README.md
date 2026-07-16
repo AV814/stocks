@@ -58,6 +58,13 @@ Payout mechanics: when a question resolves, each winner's own browser claims the
 
 The Admin tab includes a Treasury panel listing every player with their cash balance and Add / Remove / Set controls. Adjustments touch cash only (holdings are never modified), can't take anyone negative, are logged to the `transfers` feed as THE HOUSE, and toast the player if they're online. Enforced by an admin-only branch in the Firestore rules.
 
+
+## The Vapor Lounge extras
+
+**Scratchers** — instant tickets at three price points (Vapor Bucks ₡10, Neon Fortune ₡50, Diamond Heist ₡250). Scratch a 3x3 grid by clicking or dragging; three matching symbols wins that prize, up to 1000x. About 1 in 5 tickets wins something; overall return is ~72%.
+
+**VaporBall** — a weekly Powerball-style lottery. Pick 4 numbers (1-20) plus a VaporBall (1-5), ₡25 per ticket, draws Monday 00:00 UTC (Sunday night US). The winning numbers are a pure function of the week index using the same deterministic PRNG as stock prices, so every client computes the identical draw and nobody — including the admin — can rig or predict it. The jackpot starts at ₡5,000, grows by half of every ticket sold, and rolls over when nobody hits 4+VaporBall (co-winners split the pot). Settlement and prize claims use the same client-maintenance pattern as the market: the first browser to notice a completed draw does the bookkeeping, and each winner's own client credits their prizes.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

@@ -79,6 +79,69 @@ async function doSpin() {
   }, 70);
 }
 
+/* ================= SCRATCH-OFFS =================
+   Equal-EV prize ladder, ~72% RTP, ~21% of tickets win:
+   1x 12% · 2x 6% · 5x 2.4% · 20x 0.6% · 100x 0.12% · 1000x 0.012%
+   Find three matching symbols on a 3x3 grid to win that prize. */
+
+const SCRATCH_TIERS = [
+  { id: "bucks",   name: "Vapor Bucks",   price: 10,  hue: "#8bd450" },
+  { id: "neon",    name: "Neon Fortune",  price: 50,  hue: "#e8a33d" },
+  { id: "heist",   name: "Diamond Heist", price: 250, hue: "#7ec8e3" }
+];
+const SCRATCH_LADDER = [[1, 0.12], [2, 0.06], [5, 0.024], [20, 0.006], [100, 0.0012], [1000, 0.00012]];
+const PRIZE_SYM = { 1: "🍀", 2: "💰", 5: "🔔", 20: "💎", 100: "🚀", 1000: "👑" };
+const DUD_SYMS = ["🌫️", "🧦", "🥫", "🪫", "📉", "🃏"];
+
+let scratch = null; // { tier, grid, mult, prize, winSym, revealed:Set, done }
+
+function rollLadder() {
+  let r = Math.random();
+  for (const [mult, p] of SCRATCH_LADDER) { if (r < p) return mult; r -= p; }
+  return 0;
+}
+function buildGrid(winMult) {
+  const winSym = winMult ? PRIZE_SYM[winMult] : null;
+  const pool = [...Object.values(PRIZE_SYM), ...DUD_SYMS].filter((s) => s !== winSym);
+  const grid = winSym ? [winSym, winSym, winSym] : [];
+  const counts = {};
+  while (grid.length < 9) {
+    const s = pool[Math.floor(Math.random() * pool.length)];
+    if ((counts[s] || 0) >= 2) continue;
+    counts[s] = (counts[s] || 0) + 1;
+    grid.push(s);
+  }
+  for (let i = grid.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [grid[i], grid[j]] = [grid[j], grid[i]];
+  }
+  return { grid, winSym };
+}
+
+async function buyScratch(tier) {
+  if (scratch && !scratch.done) return;
+  if (tier.price > api.getCash()) { alert("Not enough credits."); return; }
+  const mult = rollLadder();
+  const prize = tier.price * mult;
+  try { await api.settle(prize - tier.price, tier.price); }
+  catch (e) { alert(e.message); return; }
+  const { grid, winSym } = buildGrid(mult);
+  scratch = { tier, grid, mult, prize, winSym, revealed: new Set(), done: false };
+  renderCasino();
+}
+function revealCell(i) {
+  if (!scratch || scratch.done) return;
+  if (scratch.revealed.has(i)) return;
+  scratch.revealed.add(i);
+  const cell = document.querySelector(`[data-sc="${i}"]`);
+  if (cell) { cell.classList.add("revealed"); cell.textContent = scratch.grid[i]; }
+  if (scratch.revealed.size === 9) {
+    scratch.done = true;
+    if (scratch.mult >= 20) api.toast("SCRATCH JACKPOT", `${scratch.tier.name}: ${scratch.mult}x pays ${api.fmt(scratch.prize)}!`);
+    renderCasino();
+  }
+}
+
 /* ================= BLACKJACK =================
    6-deck shoe, fresh shuffle each hand. Dealer stands on all 17s.
    Blackjack pays 3:2. Double on first two cards. No splits.     */
@@ -233,15 +296,44 @@ function renderCasino() {
       <div class="casino-msg">${inHand ? `Bet: ${api.fmt(bj.bet)} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. No splits — this is a dive bar, not the Bellagio.")}</div>
     </div>`;
 
+  const scratchHtml = `
+    <div class="casino-panel">
+      ${scratch ? `
+        <div class="scratch-name" style="color:${scratch.tier.hue}">${scratch.tier.name} · ${api.fmt(scratch.tier.price)}</div>
+        <div class="scratch-grid">
+          ${scratch.grid.map((s, i) => `<button class="scratch-cell ${scratch.revealed.has(i) ? "revealed" : ""}" data-sc="${i}">${scratch.revealed.has(i) ? s : ""}</button>`).join("")}
+        </div>
+        <div class="casino-controls" style="margin-top:12px">
+          ${scratch.done ? "" : `<button class="ghost" id="sc-all">Reveal all</button>`}
+        </div>
+        <div class="casino-msg ${scratch.done ? (scratch.prize > 0 ? "up" : "down") : ""}">
+          ${scratch.done
+            ? (scratch.prize > 0 ? `Three ${scratch.winSym} — you won ${api.fmt(scratch.prize)} (${scratch.mult}x)!` : "No three of a kind. Into the bin it goes.")
+            : "Scratch the foil — click or drag across the cells. Three matching symbols wins."}
+        </div>
+      ` : `<div class="casino-msg">Pick a ticket. Match three symbols to win that prize.</div>`}
+      ${(!scratch || scratch.done) ? `
+        <div class="scratch-shop">
+          ${SCRATCH_TIERS.map((t) => `<button class="scratch-buy" style="border-color:${t.hue}" data-tier="${t.id}">
+            <span style="color:${t.hue};font-weight:700">${t.name}</span>
+            <span class="muted">${api.fmt(t.price)} · win up to ${api.fmt(t.price * 1000)}</span>
+          </button>`).join("")}
+        </div>` : ""}
+    </div>`;
+
+  const lottoHtml = `<div id="lotto-root"></div>`;
+
   el.innerHTML = `
     <div class="casino-head">
       <h3 class="sec" style="margin:0">The Vapor Lounge</h3>
       <div class="casino-tabs">
         <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">🎰 Slots</button>
         <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">🃏 Blackjack</button>
+        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">🎟️ Scratchers</button>
+        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">🎱 VaporBall</button>
       </div>
     </div>
-    ${mode === "slots" ? slotsHtml : bjHtml}
+    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "scratch" ? scratchHtml : lottoHtml}
     <p class="muted" style="font-size:12px;margin-top:14px">House odds apply. The market is fairer. Cash: ${api.fmt(cash)}</p>
   `;
 
@@ -252,6 +344,17 @@ function renderCasino() {
   el.querySelector("#bj-hit")?.addEventListener("click", bjHit);
   el.querySelector("#bj-stand")?.addEventListener("click", bjFinish);
   el.querySelector("#bj-double")?.addEventListener("click", bjDouble);
+  el.querySelectorAll(".scratch-buy").forEach((b) =>
+    b.addEventListener("click", () => buyScratch(SCRATCH_TIERS.find((t) => t.id === b.dataset.tier))));
+  el.querySelectorAll(".scratch-cell").forEach((c) => {
+    const i = Number(c.dataset.sc);
+    c.addEventListener("pointerdown", () => revealCell(i));
+    c.addEventListener("pointerenter", (e) => { if (e.buttons & 1) revealCell(i); });
+  });
+  el.querySelector("#sc-all")?.addEventListener("click", () => {
+    for (let i = 0; i < 9; i++) revealCell(i);
+  });
+  if (mode === "lotto") api.renderLotto();
 }
 
 export function initCasino(apiIn) {

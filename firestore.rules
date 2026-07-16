@@ -5,7 +5,7 @@ service cloud.firestore {
     // ONE place to set the admin. Paste your UID here (same value
     // as ADMIN_UID in js/firebase-config.js).
     function isAdmin() {
-      return request.auth != null && request.auth.uid == "FfORyqwqoMYrmC9iAy8xYQevprG3";
+      return request.auth != null && request.auth.uid == "PASTE_YOUR_UID_HERE";
     }
 
     // Shared market roster. Any signed-in player may run maintenance
@@ -66,6 +66,22 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.from == request.auth.uid;
+    }
+
+    // VaporBall lottery. The weekly doc (pot / sales / settlement) is
+    // friendly-trust like /market — any signed-in client maintains it.
+    // Tickets: you create and claim only your own.
+    match /lottery/{weekId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+
+      match /tickets/{tid} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.uid == request.auth.uid;
+        allow update: if request.auth != null
+          && resource.data.uid == request.auth.uid;
+      }
     }
 
     // Prediction markets. Only the admin creates/locks/resolves/voids

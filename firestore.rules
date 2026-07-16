@@ -10,21 +10,50 @@ service cloud.firestore {
 
     // Player accounts. Everyone signed in can read (leaderboard),
     // but you can only write your own doc, must start at 1000,
-    // and can never take cash negative.
+    // and can never take cash negative. Avatar is a small data-URL
+    // image stored on the doc (no Firebase Storage needed).
+    // OTHER players may update your doc ONLY if the single field
+    // that changes is cash, and it goes UP — that's how transfers
+    // credit the recipient. You can give, never take.
     match /users/{uid} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.cash == 1000;
-      allow update: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.cash is number
-        && request.resource.data.cash >= 0;
+      allow update: if request.auth != null && (
+        (
+          request.auth.uid == uid
+          && request.resource.data.cash is number
+          && request.resource.data.cash >= 0
+          && (
+            !("avatar" in request.resource.data)
+            || (
+              request.resource.data.avatar is string
+              && request.resource.data.avatar.size() < 60000
+              && request.resource.data.avatar.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+')
+            )
+          )
+        )
+        || (
+          request.auth.uid != uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash"])
+          && request.resource.data.cash is number
+          && request.resource.data.cash > resource.data.cash
+        )
+      );
 
       match /trades/{tradeId} {
         allow read: if request.auth != null;
         allow create: if request.auth != null && request.auth.uid == uid;
       }
+    }
+
+    // Transfer log. Anyone signed in can read; you can only log
+    // transfers you sent yourself.
+    match /transfers/{tid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.from == request.auth.uid;
     }
 
     // Prediction markets. Only the admin creates/locks/resolves/voids
@@ -34,7 +63,7 @@ service cloud.firestore {
     match /predictions/{predId} {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null
-        && request.auth.uid == "FfORyqwqoMYrmC9iAy8xYQevprG3";
+        && request.auth.uid == "PASTE_YOUR_UID_HERE";
 
       match /bets/{uid} {
         allow read: if request.auth != null;

@@ -344,3 +344,32 @@ h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; colo
   display: grid; grid-template-columns: 1fr auto auto; gap: 14px;
   font-family: var(--mono); font-size: 12px; padding: 4px 0; color: var(--paper-dim);
 }
+
+/* ---------- avatars & transfers ---------- */
+.avatar { border-radius: 50%; object-fit: cover; display: inline-block; vertical-align: middle; }
+.avatar-fallback {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--amber);
+  font-family: var(--mono); font-weight: 600; border-radius: 50%;
+}
+.avatar-btn { background: none; border: none; padding: 0; line-height: 0; }
+.avatar-btn:hover .avatar { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+.lb-row { grid-template-columns: 44px 1fr 130px 90px 84px; }
+.lb-name { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+.lb-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-act { text-align: right; }
+.lb-send { font-size: 12px; padding: 5px 10px; }
+.lb-send-row {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--amber); border-radius: 8px;
+  padding: 12px 14px; margin: 6px 0 10px;
+}
+.lb-send-row input {
+  width: 120px; padding: 9px 10px; background: var(--ink); color: var(--paper);
+  border: 1px solid var(--line); border-radius: 6px; font-family: var(--mono);
+}
+@media (max-width: 640px) {
+  .lb-row { grid-template-columns: 36px 1fr 100px 76px; }
+  .lb-act { grid-column: 2 / -1; text-align: left; }
+}

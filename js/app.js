@@ -11,6 +11,7 @@ import { firebaseConfig, ADMIN_UID } from "./firebase-config.js";
 import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
 import { initCasino } from "./casino.js";
 import { initPredictions } from "./predictions.js";
+import { initSocial } from "./social.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -62,6 +63,11 @@ const predictions = initPredictions({
   el: () => $("#view-predict"),
   adminEl: () => $("#view-admin")
 });
+const social = initSocial({
+  db, fmt, toast,
+  me: () => me,
+  myDoc: () => myDoc
+});
 
 /* ================= AUTH ================= */
 let signupMode = false;
@@ -105,9 +111,11 @@ onAuthStateChanged(auth, (user) => {
   if (unsubUser) { unsubUser(); unsubUser = null; }
   if (unsubUsers) { unsubUsers(); unsubUsers = null; }
   predictions.unsubscribePredictions();
+  social.unsubscribeTransfers();
   $("#tab-admin").classList.toggle("hidden", !user || user.uid !== ADMIN_UID);
   if (!user) return;
   predictions.subscribePredictions();
+  social.subscribeTransfers();
 
   unsubUser = onSnapshot(doc(db, "users", user.uid), async (snap) => {
     if (!snap.exists()) {
@@ -285,8 +293,16 @@ function showView(id) {
 }
 
 function renderCash() {
-  if (myDoc) $("#cash-pill").textContent = fmt(myDoc.cash);
+  if (!myDoc) return;
+  $("#cash-pill").textContent = fmt(myDoc.cash);
+  $("#avatar-btn").innerHTML = social.avatarHtml(myDoc, 30);
 }
+$("#avatar-btn").addEventListener("click", () => $("#avatar-file").click());
+$("#avatar-file").addEventListener("change", (e) => {
+  const f = e.target.files?.[0];
+  if (f) social.uploadAvatar(f);
+  e.target.value = "";
+});
 
 function render() {
   if (!market) return;
@@ -487,19 +503,46 @@ function renderNews() {
 }
 
 /* ---------- leaderboard ---------- */
+const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let sendOpen = null; // uid of the row with the send form open
+
 function renderLeaderboard() {
   const ranked = allUsers
     .map((u) => ({ ...u, total: portfolioValue(u) }))
     .sort((a, b) => b.total - a.total);
   $("#view-leaderboard").innerHTML = `<h3 class="sec">Standings</h3>` + ranked.map((u, i) => {
     const g = u.total / STARTING_CASH - 1;
-    return `<div class="lb-row ${u.id === me?.uid ? "me" : ""}">
+    const isMe = u.id === me?.uid;
+    const name = escHtml(u.name || "Trader");
+    const open = sendOpen === u.id;
+    return `<div class="lb-row ${isMe ? "me" : ""}">
       <div class="lb-rank">#${i + 1}</div>
-      <div>${u.name || "Trader"}</div>
+      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span></div>
       <div class="lb-val">${fmt(u.total)}</div>
       <div class="lb-val ${g >= 0 ? "up" : "down"}">${pct(g)}</div>
-    </div>`;
+      <div class="lb-act">${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}</div>
+    </div>
+    ${open ? `<div class="lb-send-row">
+      <input type="number" id="send-amt" min="0.01" step="0.01" placeholder="Amount">
+      <button class="btn-spin" id="send-go">Send to ${name}</button>
+      <span class="muted" style="font-size:12px">your cash: ${fmt(myDoc?.cash || 0)}</span>
+    </div>` : ""}`;
   }).join("");
+
+  $("#view-leaderboard").querySelectorAll(".lb-send").forEach((b) =>
+    b.addEventListener("click", () => {
+      sendOpen = sendOpen === b.dataset.uid ? null : b.dataset.uid;
+      renderLeaderboard();
+      $("#send-amt")?.focus();
+    }));
+  $("#send-go")?.addEventListener("click", async () => {
+    const target = ranked.find((u) => u.id === sendOpen);
+    if (!target) return;
+    const ok = await social.sendMoney(target.id, target.name || "Trader", $("#send-amt")?.value);
+    if (ok) { sendOpen = null; renderLeaderboard(); }
+  });
 }
 
 /* ---------- ticker tape + toasts ---------- */

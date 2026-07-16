@@ -53,6 +53,12 @@ Payout mechanics: when a question resolves, each winner's own browser claims the
 2. Paste it as `ADMIN_UID` in `js/firebase-config.js`.
 3. Paste the same UID into the `predictions` rule in `firestore.rules` and republish the rules in the Firebase console.
 
+## Profile pictures & sending credits
+
+Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.
+
+The leaderboard also has a **Send ₡** button on every other player's row. Transfers move cash in a single atomic transaction, the recipient gets a live "CREDITS RECEIVED" toast, and every transfer is logged to the `transfers` collection with sender, recipient, amount, and timestamp. The Firestore rules only permit writing another player's doc when the sole change is their cash increasing, so credits can be given but never taken.
+
 ## Local development
 
 Modules require a web server — opening `index.html` directly won't work. From the project folder:

@@ -370,10 +370,10 @@ function renderCasino() {
     <div class="casino-head">
       <h3 class="sec" style="margin:0">The Vapor Lounge</h3>
       <div class="casino-tabs">
-        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">🎰 Slots</button>
-        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">🃏 Blackjack</button>
-        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">🎟️ Scratchers</button>
-        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">🎱 VaporBall</button>
+        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
+        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
+        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratchers</button>
+        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">VaporBall</button>
       </div>
     </div>
     ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "scratch" ? scratchHtml : lottoHtml}

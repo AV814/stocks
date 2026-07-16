@@ -1,74 +1,83 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAPORSTOCKS — after-hours exchange</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
 
-<!-- ============ AUTH SCREEN ============ -->
-<div id="auth-screen" class="hidden">
-  <div class="auth-card">
-    <div class="logo">VAPOR<span>STOCKS</span></div>
-    <p class="tagline">Fake stocks. Real grudges.</p>
-    <form id="auth-form">
-      <input id="auth-name" type="text" placeholder="Trader name" autocomplete="nickname" maxlength="20">
-      <input id="auth-email" type="email" placeholder="Email" autocomplete="email" required>
-      <input id="auth-pass" type="password" placeholder="Password" autocomplete="current-password" required minlength="6">
-      <button type="submit" id="auth-submit">Sign in</button>
-    </form>
-    <p class="auth-switch">New here? <a href="#" id="auth-toggle">Create an account</a> — you start with ₡1,000.</p>
-    <p class="auth-error" id="auth-error"></p>
-  </div>
-</div>
+    // ONE place to set the admin. Paste your UID here (same value
+    // as ADMIN_UID in js/firebase-config.js).
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == "PASTE_YOUR_UID_HERE";
+    }
 
-<!-- ============ APP ============ -->
-<div id="app" class="hidden">
+    // Shared market roster. Any signed-in player may run maintenance
+    // (bankruptcies / new listings). Friendly-trust model.
+    match /market/{docId} {
+      allow read, write: if request.auth != null;
+    }
 
-  <!-- signature: live ticker tape -->
-  <div id="tape-wrap"><div id="tape"></div></div>
+    // Player accounts. Everyone signed in can read (leaderboard).
+    // Three ways a user doc can be updated:
+    //  1. The owner: anything, but cash stays a non-negative number
+    //     and any avatar must be a small image data URL.
+    //  2. Another player: ONLY cash, and ONLY upward (transfers give,
+    //     never take).
+    //  3. The admin: ONLY cash, to any non-negative number (treasury).
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.cash == 1000;
+      allow update: if request.auth != null && (
+        (
+          request.auth.uid == uid
+          && request.resource.data.cash is number
+          && request.resource.data.cash >= 0
+          && (
+            !("avatar" in request.resource.data)
+            || (
+              request.resource.data.avatar is string
+              && request.resource.data.avatar.size() < 60000
+              && request.resource.data.avatar.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+')
+            )
+          )
+        )
+        || (
+          request.auth.uid != uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash"])
+          && request.resource.data.cash is number
+          && request.resource.data.cash > resource.data.cash
+        )
+        || (
+          isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash"])
+          && request.resource.data.cash is number
+          && request.resource.data.cash >= 0
+        )
+      );
 
-  <header>
-    <div class="logo sm">VAPOR<span>STOCKS</span></div>
-    <div class="header-right">
-      <button id="avatar-btn" class="avatar-btn" title="Change profile picture"></button>
-      <input id="avatar-file" type="file" accept="image/*" hidden>
-      <div class="cash-pill" id="cash-pill">₡ —</div>
-      <button class="ghost" id="sign-out">Sign out</button>
-    </div>
-  </header>
+      match /trades/{tradeId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == uid;
+      }
+    }
 
-  <nav>
-    <button data-view="market" class="tab active">Exchange</button>
-    <button data-view="portfolio" class="tab">Portfolio</button>
-    <button data-view="news" class="tab">News<span id="news-dot" class="dot hidden"></span></button>
-    <button data-view="casino" class="tab">Casino</button>
-    <button data-view="predict" class="tab">Predictions</button>
-    <button data-view="leaderboard" class="tab">Leaderboard</button>
-    <button data-view="admin" class="tab hidden" id="tab-admin">Admin</button>
-  </nav>
+    // Transfer log (player-to-player gifts and admin treasury moves).
+    // Anyone signed in can read; you can only log transfers you sent.
+    match /transfers/{tid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.from == request.auth.uid;
+    }
 
-  <main>
-    <section id="view-market" class="view"></section>
-    <section id="view-stock" class="view hidden"></section>
-    <section id="view-portfolio" class="view hidden"></section>
-    <section id="view-news" class="view hidden"></section>
-    <section id="view-casino" class="view hidden"></section>
-    <section id="view-predict" class="view hidden"></section>
-    <section id="view-leaderboard" class="view hidden"></section>
-    <section id="view-admin" class="view hidden"></section>
-  </main>
+    // Prediction markets. Only the admin creates/locks/resolves/voids
+    // questions. Players write only their own bet doc.
+    match /predictions/{predId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
 
-  <div id="toast-stack"></div>
-</div>
-
-<div id="boot" class="boot">Connecting to the exchange…</div>
-
-<script type="module" src="js/app.js"></script>
-</body>
-</html>
+      match /bets/{uid} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}

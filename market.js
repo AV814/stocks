@@ -288,7 +288,13 @@ function renderAdmin() {
       <p class="muted" style="font-size:12px">Multiplier = total payout per credit staked (a 2x winner turns ₡100 into ₡200). Losing stakes are burned, so the house neither holds nor pays the float — winners are paid from thin air, house-of-vapor style.</p>
     </div>
     ${preds.map(admCard).join("") || `<p class="muted">No predictions yet.</p>`}
+    ${treasuryPanel()}
   `;
+
+  el.querySelectorAll("[data-tr]").forEach((b) => b.addEventListener("click", () => {
+    const amt = document.querySelector(`#tr-amt-${b.dataset.uid}`)?.value;
+    adjustCash(b.dataset.uid, b.dataset.name, b.dataset.tr, amt);
+  }));
 
   el.querySelector("#adm-add-opt")?.addEventListener("click", () => {
     captureDraft(); draftOptions.push({ label: "", multiplier: 2 }); renderAdmin();
@@ -312,6 +318,52 @@ function renderAdmin() {
     else if (act === "bets") loadBets(p.id);
     else if (act === "delete") { if (confirm("Delete this prediction? Bet records go with it.")) deleteDoc(doc(api.db, "predictions", p.id)); }
   }));
+}
+
+/* ---- treasury: admin add / remove / set player cash ---- */
+async function adjustCash(uid, name, mode, value) {
+  value = Math.round(Number(value) * 100) / 100;
+  if (isNaN(value) || (mode !== "set" && !(value > 0)) || (mode === "set" && value < 0)) {
+    return alert("Enter a valid amount.");
+  }
+  try {
+    let delta = 0;
+    await runTransaction(api.db, async (tx) => {
+      const ref = doc(api.db, "users", uid);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error("Player not found.");
+      const cash = snap.data().cash || 0;
+      const next = mode === "add" ? cash + value : mode === "remove" ? cash - value : value;
+      if (next < 0) throw new Error(`That would take ${name} to ${api.fmt(next)}. Cash can't go negative.`);
+      delta = Math.round((next - cash) * 100) / 100;
+      tx.update(ref, { cash: Math.round(next * 100) / 100 });
+    });
+    if (delta !== 0) {
+      addDoc(collection(api.db, "transfers"), {
+        from: api.me().uid, fromName: "THE HOUSE",
+        to: uid, toName: name, amount: delta, at: Date.now(), admin: true
+      });
+    }
+    api.toast("Treasury", `${name}: ${delta >= 0 ? "+" : ""}${api.fmt(Math.abs(delta))}${delta < 0 ? " removed" : ""}`);
+  } catch (e) { alert(e.message); }
+}
+
+function treasuryPanel() {
+  const users = [...api.users()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  if (!users.length) return "";
+  return `<div class="adm-form" style="margin-top:20px">
+    <h3 class="sec" style="margin-top:0">Treasury</h3>
+    ${users.map((u) => `
+      <div class="adm-cash-row">
+        <span class="adm-cash-name">${esc(u.name || "Trader")}${u.id === api.me()?.uid ? " (you)" : ""}</span>
+        <span class="adm-cash-bal">${api.fmt(u.cash || 0)}</span>
+        <input type="number" min="0" step="1" placeholder="Amount" id="tr-amt-${u.id}">
+        <button class="ghost" data-tr="add" data-uid="${u.id}" data-name="${esc(u.name || "Trader")}">Add</button>
+        <button class="ghost danger" data-tr="remove" data-uid="${u.id}" data-name="${esc(u.name || "Trader")}">Remove</button>
+        <button class="ghost" data-tr="set" data-uid="${u.id}" data-name="${esc(u.name || "Trader")}">Set</button>
+      </div>`).join("")}
+    <p class="muted" style="font-size:12px">Cash only — holdings are untouched. Adjustments are logged to the transfer feed as THE HOUSE, and the player gets a toast if they're online.</p>
+  </div>`;
 }
 
 function captureDraft() {

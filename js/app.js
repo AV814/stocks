@@ -59,6 +59,7 @@ const predictions = initPredictions({
   db, fmt, toast, ADMIN_UID,
   me: () => me,
   myDoc: () => myDoc,
+  users: () => allUsers,
   isAdmin: () => me?.uid === ADMIN_UID,
   el: () => $("#view-predict"),
   adminEl: () => $("#view-admin")
@@ -130,7 +131,7 @@ onAuthStateChanged(auth, (user) => {
   });
   unsubUsers = onSnapshot(collection(db, "users"), (qs) => {
     allUsers = qs.docs.map((d) => ({ id: d.id, ...d.data() }));
-    if (view === "leaderboard") render();
+    if (view === "leaderboard" || view === "admin") render();
   });
   subscribeMarket();
 });

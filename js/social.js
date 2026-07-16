@@ -112,7 +112,9 @@ function subscribeTransfers() {
       qs.docChanges().forEach((ch) => {
         if (ch.type !== "added") return;
         const t = ch.doc.data();
-        if (t.at > watchStart) api.toast("CREDITS RECEIVED", `${t.fromName} sent you ${api.fmt(t.amount)}`);
+        if (t.at <= watchStart) return;
+        if (t.amount >= 0) api.toast("CREDITS RECEIVED", `${t.fromName} sent you ${api.fmt(t.amount)}`);
+        else api.toast("HOUSE ADJUSTMENT", `${t.fromName} removed ${api.fmt(-t.amount)} from your account`);
       });
     },
     (e) => console.error("transfer watch failed", e)

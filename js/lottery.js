@@ -1,21 +1,21 @@
 /* ============================================================
-   VAPORSTOCKS — VaporBall weekly lottery
+   VAPORSTOCKS — VaporBall nightly lottery
    Pick 4 numbers (1-20) + a PowerBall (1-5). ₡25 a ticket.
-   Draws Monday 00:00 UTC (Sunday night US time).
+   Draws every night at 05:00 UTC (midnight EST / 1 AM EDT).
 
-   The winning numbers are a pure function of the week index,
+   The winning numbers are a pure function of the draw index,
    computed with the same counter-based PRNG as stock prices —
    every client derives the identical draw, so nothing about the
    result lives on (or can be tampered with on) the server.
 
    Firestore:
-     lottery/{weekId}            — sales, pot, settled, winNums,
+     lottery/{drawId}            — sales, pot, settled, winNums,
                                    winPb, winnersCount, potFinal
-     lottery/{weekId}/tickets/{id} — uid, name, nums, pb, at,
+     lottery/{drawId}/tickets/{id} — uid, name, nums, pb, at,
                                      claimed, payout
 
-   Pot = 5000 base + 50% of ticket sales + rollover from any
-   week without a jackpot winner. Settlement and prize claims
+   Pot = 1000 base + 25% of ticket sales + rollover from any
+   night without a jackpot winner. Settlement and prize claims
    follow the same client-maintenance pattern as the market:
    whoever's browser notices first, does the bookkeeping.
    ============================================================ */
@@ -29,16 +29,16 @@ let api = null;   // { db, me, myDoc, fmt, toast, el: () => lotto root element }
 
 const TICKET = 25;
 const NUM_MAX = 20, PICKS = 4, PB_MAX = 5;
-const BASE_POT = 5000;
-const POT_CUT = 0.5;
-const WEEK_MS = 7 * 86400000;
-const WEEK_OFFSET = 4 * 86400000;            // shifts boundaries to Monday 00:00 UTC
+const BASE_POT = 1000;
+const POT_CUT = 0.25;                        // quarter of each ticket feeds the pot
+const DAY_MS = 86400000;
+const DRAW_OFFSET = 5 * 3600000;             // boundaries at 05:00 UTC = midnight EST (1 AM EDT)
 const LOTTO_SALT = 0x7a9b0421;
 
-const weekId = (t = Date.now()) => Math.floor((t - WEEK_OFFSET) / WEEK_MS);
-const weekEnd = (w) => (w + 1) * WEEK_MS + WEEK_OFFSET;
+const drawId = (t = Date.now()) => Math.floor((t - DRAW_OFFSET) / DAY_MS);
+const drawEnd = (w) => (w + 1) * DAY_MS + DRAW_OFFSET;
 
-/* ---------- the draw: deterministic per week ---------- */
+/* ---------- the draw: deterministic per night ---------- */
 export function drawFor(w) {
   const seed = deriveSeed(LOTTO_SALT, w);
   const nums = [];
@@ -69,8 +69,8 @@ const isJackpot = (t, d) => t.pb === d.pb && t.nums.filter((n) => d.nums.include
 let slip = [];                 // tickets queued for purchase [{nums, pb}]
 let picking = { nums: [], pb: null };
 let curWeekDoc = null;         // live pot for the current week
-let myTickets = [];            // my tickets this week
-let lastResults = null;        // { week, draw, doc, mine: [tickets with prizes] }
+let myTickets = [];            // my tickets tonight
+let lastResults = null;        // { id, draw, doc, mine: [tickets with prizes] }
 let unsubWeek = null;
 let watchedWeek = null;
 let busy = false;
@@ -87,7 +87,7 @@ export function unsubscribeLottery() {
 }
 
 function watchWeek() {
-  const w = weekId();
+  const w = drawId();
   if (watchedWeek === w && unsubWeek) return;
   if (unsubWeek) unsubWeek();
   watchedWeek = w;
@@ -101,8 +101,8 @@ function watchWeek() {
 async function maintain() {
   const uid = api.me()?.uid;
   if (!uid) return;
-  const w = weekId();
-  for (const past of [w - 3, w - 2, w - 1]) {
+  const w = drawId();
+  for (let past = w - 7; past < w; past++) {
     try { await settleWeek(past); } catch (e) { console.error("settle failed", e); }
     try { await claimWeek(past); } catch (e) { console.error("claim failed", e); }
   }
@@ -126,7 +126,7 @@ async function settleWeek(w) {
     const pot = s.data().pot || BASE_POT;
     let curSnap = null, curRef = null;
     if (winnersCount === 0) {
-      curRef = doc(api.db, "lottery", String(weekId()));
+      curRef = doc(api.db, "lottery", String(drawId()));
       curSnap = await tx.get(curRef);
     }
     tx.set(ref, {
@@ -140,7 +140,7 @@ async function settleWeek(w) {
     return true;
   });
   if (didSettle && winnersCount === 0 && (snap.data().sales || 0) > 0) {
-    api.toast("VAPORBALL", `No jackpot winner last week — ${api.fmt(snap.data().pot || BASE_POT)} rolls over!`);
+    api.toast("VAPORBALL", `No jackpot winner last night — ${api.fmt(snap.data().pot || BASE_POT)} rolls over!`);
   }
 }
 
@@ -169,26 +169,26 @@ async function claimWeek(w) {
     }
   }
   if (jackpot) api.toast("💥 JACKPOT 💥", `You hit the VaporBall! ${api.fmt(won)} claimed.`);
-  else if (won > 0) api.toast("VAPORBALL WINNER", `Last draw paid you ${api.fmt(won)}.`);
+  else if (won > 0) api.toast("VAPORBALL WINNER", `Last night’s draw paid you ${api.fmt(won)}.`);
 }
 
 async function loadMine() {
   const uid = api.me()?.uid;
   if (!uid) return;
-  const w = weekId();
+  const w = drawId();
   const qs = await getDocs(query(collection(api.db, "lottery", String(w), "tickets"), where("uid", "==", uid)));
   myTickets = qs.docs.map((d) => d.data()).sort((a, b) => a.at - b.at);
 }
 
 async function loadLastResults() {
-  const w = weekId() - 1;
+  const w = drawId() - 1;
   const snap = await getDoc(doc(api.db, "lottery", String(w)));
   const draw = drawFor(w);
-  if (!snap.exists()) { lastResults = { week: w, draw, doc: null, mine: [] }; return; }
+  if (!snap.exists()) { lastResults = { id: w, draw, doc: null, mine: [] }; return; }
   const uid = api.me().uid;
   const mine = (await getDocs(query(collection(api.db, "lottery", String(w), "tickets"), where("uid", "==", uid))))
     .docs.map((d) => d.data());
-  lastResults = { week: w, draw, doc: snap.data(), mine };
+  lastResults = { id: w, draw, doc: snap.data(), mine };
 }
 
 /* ---------- buying ---------- */
@@ -206,7 +206,7 @@ async function buySlip() {
   const cost = slip.length * TICKET;
   if (cost > (api.myDoc()?.cash || 0)) { alert("Not enough credits for the whole slip."); return; }
   busy = true;
-  const w = weekId();
+  const w = drawId();
   const name = api.myDoc()?.name || "Trader";
   const uid = api.me().uid;
   try {
@@ -242,10 +242,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function drawCountdown() {
-  const ms = weekEnd(weekId()) - Date.now();
-  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
-  if (d > 0) return `in ${d}d ${h}h`;
-  const m = Math.floor((ms % 3600000) / 60000);
+  const ms = drawEnd(drawId()) - Date.now();
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
 }
 
@@ -268,10 +266,10 @@ export function renderLotto() {
     const lr = lastResults;
     const anyPlay = lr.doc && (lr.doc.sales || 0) > 0;
     lastHtml = `<div class="lotto-last">
-      <h3 class="sec">Last draw — week ${lr.week}</h3>
+      <h3 class="sec">Last night’s draw</h3>
       <div class="lotto-balls">${ballsHtml(lr.draw.nums, lr.draw.pb)}</div>
       ${anyPlay ? `<p class="muted" style="font-size:12px">
-        ${lr.doc.winnersCount > 0 ? `${lr.doc.winnersCount} jackpot winner${lr.doc.winnersCount > 1 ? "s" : ""} split ${api.fmt(lr.doc.potFinal)}.` : `No jackpot winner — ${api.fmt(lr.doc.potFinal)} rolled into this week's pot.`}
+        ${lr.doc.winnersCount > 0 ? `${lr.doc.winnersCount} jackpot winner${lr.doc.winnersCount > 1 ? "s" : ""} split ${api.fmt(lr.doc.potFinal)}.` : `No jackpot winner — ${api.fmt(lr.doc.potFinal)} rolled into tonight's pot.`}
       </p>` : `<p class="muted" style="font-size:12px">Nobody played. The numbers echo in an empty hall.</p>`}
       ${lr.mine.map((t) => `<div class="lotto-ticket">${ballsHtml(t.nums, t.pb, lr.draw.nums, t.pb === lr.draw.pb)}
         <span class="${t.payout > 0 ? "up" : "muted"}">${t.payout > 0 ? "won " + api.fmt(t.payout) : "no win"}</span></div>`).join("")}
@@ -280,9 +278,9 @@ export function renderLotto() {
 
   root.innerHTML = `
     <div class="lotto-jackpot">
-      <div class="lotto-pot-label">THIS WEEK'S JACKPOT</div>
+      <div class="lotto-pot-label">TONIGHT'S JACKPOT</div>
       <div class="lotto-pot">${api.fmt(pot)}</div>
-      <div class="muted" style="font-size:12px">Draw ${drawCountdown()} · match 4 + the VaporBall · ₡${TICKET}/ticket · half of every ticket feeds the pot · no winner = rollover</div>
+      <div class="muted" style="font-size:12px">Nightly draw at midnight ET · ${drawCountdown()} · match 4 + the VaporBall · ₡${TICKET}/ticket · a quarter of every ticket feeds the pot · no winner = rollover</div>
     </div>
 
     <div class="lotto-pickbox">
@@ -302,7 +300,7 @@ export function renderLotto() {
     </div>` : ""}
 
     ${myTickets.length ? `<div class="lotto-mine">
-      <h3 class="sec">Your tickets this week (${myTickets.length})</h3>
+      <h3 class="sec">Your tickets tonight (${myTickets.length})</h3>
       ${myTickets.map((t) => `<div class="lotto-ticket">${ballsHtml(t.nums, t.pb)}</div>`).join("")}
     </div>` : ""}
 

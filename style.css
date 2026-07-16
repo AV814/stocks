@@ -452,3 +452,100 @@ h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; colo
   .scratch-grid { grid-template-columns: repeat(3, 72px); }
   .scratch-cell { width: 72px; height: 72px; font-size: 28px; }
 }
+
+/* ============================================================
+   STEAM '99 RESKIN — GoldSrc-era Valve look.
+   Olive panels, beveled chrome, Tahoma. This whole block is an
+   override layer: delete it to restore the vaporwave theme.
+   ============================================================ */
+:root {
+  --ink: #3e4637;         /* desktop olive */
+  --panel: #4c5844;       /* raised panel green */
+  --panel-2: #5a6850;
+  --line: #282e22;
+  --paper: #d8ded3;
+  --paper-dim: #a3ab98;
+  --amber: #c4b550;       /* Half-Life olive-yellow */
+  --up: #a8c45c;
+  --down: #cc7a5a;
+  --mono: "Lucida Console", "Courier New", monospace;
+  --sans: Tahoma, Verdana, "MS Sans Serif", Geneva, sans-serif;
+  --bev-light: #8a9280;
+  --bev-dark: #232920;
+  --select: #958831;      /* classic Steam selection olive */
+}
+* { border-radius: 0 !important; }
+body { font-size: 13px; }
+.logo { font-weight: 700; font-stretch: normal; letter-spacing: 0.05em; text-shadow: 1px 1px 0 var(--bev-dark); }
+.sec { letter-spacing: 0.12em; text-transform: uppercase; font-size: 11px; }
+
+/* raised bevel chrome on every panel */
+.casino-panel, .pred-card, .adm-form, .auth-card, .trade-box,
+.lotto-jackpot, .lotto-pickbox, .lotto-slip, .lotto-mine, .lotto-last,
+.lb-send-row, .toast {
+  border: 2px solid !important;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light) !important;
+  box-shadow: none !important;
+}
+
+/* chunky 3D buttons, pressed state included */
+button, .tab, .ghost, .btn-spin, .btn-bj, .btn-buy, .btn-sell,
+.pred-bet-btn, .adm-resolve, .scratch-buy, .pick, .tf-row button {
+  border: 2px solid !important;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light) !important;
+  background: var(--panel-2);
+  color: var(--paper);
+  font-family: var(--sans);
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+}
+button:active:not(:disabled) {
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important;
+  transform: translate(1px, 1px);
+}
+.btn-spin, .btn-buy, .pred-bet-btn, .adm-resolve, #adm-create { background: var(--select); color: #fff; }
+.btn-sell, .ghost.danger { background: #7a4a3a; color: #f0e6dd; }
+.btn-bj { background: var(--panel-2); color: var(--paper); }
+.avatar-btn { border: none !important; background: none !important; }
+.avatar-btn:active { transform: none; }
+
+/* nav as a tab strip */
+nav { border-bottom: 2px solid var(--bev-dark); }
+.tab { padding: 6px 12px; margin-right: 2px; background: var(--panel); }
+.tab.active {
+  background: var(--select) !important; color: #fff !important;
+  box-shadow: none !important;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light) !important;
+}
+
+/* sunken inputs, like a Win98 text field */
+input, select, textarea {
+  border: 2px solid !important;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important;
+  background: #333a2e !important;
+  color: var(--paper) !important;
+}
+input:focus { outline: 1px dotted var(--amber) !important; outline-offset: -4px; }
+
+/* header gets a title-bar feel */
+header {
+  background: linear-gradient(#5a6850, #4c5844);
+  border-bottom: 2px solid var(--bev-dark);
+  padding-top: 6px; padding-bottom: 6px;
+}
+.cash-pill {
+  border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+  background: #333a2e; color: var(--amber); font-family: var(--mono);
+}
+
+/* selection olive for rows and highlights */
+.mkt-row:hover, .lb-row.me { background: var(--select); color: #fff; }
+.lb-row.me .lb-val, .mkt-row:hover .co { color: #e8e4c8; }
+.pred-opt.mine { box-shadow: inset 3px 0 0 var(--amber); }
+.ball { box-shadow: 1px 1px 0 var(--bev-dark); }
+.reel, .bj-card, .scratch-cell.revealed { border: 2px solid !important; border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important; }
+.bj-card { background: #e8e4d4; }
+.scratch-cell:not(.revealed) {
+  background: repeating-linear-gradient(45deg, #6e6e64, #6e6e64 5px, #7e7e72 5px, #7e7e72 10px);
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light) !important;
+}

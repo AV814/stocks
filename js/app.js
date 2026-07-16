@@ -7,8 +7,10 @@ import {
   getFirestore, doc, collection, onSnapshot, runTransaction,
   setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig, ADMIN_UID } from "./firebase-config.js";
 import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
+import { initCasino } from "./casino.js";
+import { initPredictions } from "./predictions.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -33,6 +35,33 @@ let unsubUser = null, unsubUsers = null;
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => "₡" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
+
+/* ---- shared cash mover for casino: one transaction on my own doc.
+   delta may be negative; minStake is the cash needed up front. ---- */
+async function settle(delta, minStake = 0) {
+  await runTransaction(db, async (tx) => {
+    const ref = doc(db, "users", me.uid);
+    const snap = await tx.get(ref);
+    const cash = snap.data()?.cash || 0;
+    if (cash < minStake || cash + delta < 0) throw new Error("Not enough credits.");
+    tx.update(ref, { cash: Math.round((cash + delta) * 100) / 100 });
+  });
+}
+
+const casino = initCasino({
+  fmt, toast,
+  getCash: () => myDoc?.cash || 0,
+  settle,
+  el: () => $("#view-casino")
+});
+const predictions = initPredictions({
+  db, fmt, toast, ADMIN_UID,
+  me: () => me,
+  myDoc: () => myDoc,
+  isAdmin: () => me?.uid === ADMIN_UID,
+  el: () => $("#view-predict"),
+  adminEl: () => $("#view-admin")
+});
 
 /* ================= AUTH ================= */
 let signupMode = false;
@@ -75,7 +104,10 @@ onAuthStateChanged(auth, (user) => {
   $("#app").classList.toggle("hidden", !user);
   if (unsubUser) { unsubUser(); unsubUser = null; }
   if (unsubUsers) { unsubUsers(); unsubUsers = null; }
+  predictions.unsubscribePredictions();
+  $("#tab-admin").classList.toggle("hidden", !user || user.uid !== ADMIN_UID);
   if (!user) return;
+  predictions.subscribePredictions();
 
   unsubUser = onSnapshot(doc(db, "users", user.uid), async (snap) => {
     if (!snap.exists()) {
@@ -247,7 +279,7 @@ document.querySelectorAll(".tab").forEach((b) =>
 );
 
 function showView(id) {
-  ["market", "stock", "portfolio", "news", "leaderboard"].forEach((v) =>
+  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "admin"].forEach((v) =>
     $(`#view-${v}`).classList.toggle("hidden", v !== id)
   );
 }
@@ -264,6 +296,9 @@ function render() {
   else if (view === "portfolio") renderPortfolio();
   else if (view === "news") renderNews();
   else if (view === "leaderboard") renderLeaderboard();
+  else if (view === "casino") casino.render();
+  else if (view === "predict") predictions.renderPredictions();
+  else if (view === "admin") predictions.renderAdmin();
 }
 
 /* ---------- market list ---------- */

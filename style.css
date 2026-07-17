@@ -549,3 +549,58 @@ header {
   background: repeating-linear-gradient(45deg, #6e6e64, #6e6e64 5px, #7e7e72 5px, #7e7e72 10px);
   border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light) !important;
 }
+
+/* ---------- roulette ---------- */
+.roul-result { margin-bottom: 14px; }
+.roul-ball {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 50% !important;
+  font-family: var(--mono); font-size: 22px; font-weight: 700;
+  background: var(--panel-2); color: var(--paper); border: 2px solid var(--bev-dark);
+}
+.roul-ball.red { background: #8c3a2e; color: #fff; }
+.roul-ball.black { background: #22261e; color: #fff; }
+.roul-ball.green { background: #3f6b3a; color: #fff; }
+.roul-board { display: flex; gap: 6px; justify-content: center; align-items: stretch; }
+.roul-nums { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; flex: 1; max-width: 520px; }
+.roul-cell {
+  position: relative; min-height: 34px; font-family: var(--mono); font-size: 12px; font-weight: 700;
+  padding: 0 !important;
+}
+.roul-cell.red { background: #8c3a2e !important; color: #fff; }
+.roul-cell.black { background: #22261e !important; color: #fff; }
+.roul-cell.green { background: #3f6b3a !important; color: #fff; min-width: 40px; }
+.roul-outs { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.roul-out { position: relative; font-size: 11px; font-weight: 700; padding: 8px 12px; }
+.chip {
+  position: absolute; top: -7px; right: -5px;
+  background: var(--amber); color: #222; border-radius: 50% !important;
+  min-width: 20px; height: 20px; line-height: 20px; font-size: 10px; font-weight: 700;
+  border: 1px solid var(--bev-dark); padding: 0 3px;
+}
+
+/* ---------- keno ---------- */
+.keno-head { display: flex; gap: 8px; align-items: baseline; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+.keno-cd { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--amber); }
+.keno-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; max-width: 480px; margin: 0 auto; }
+.keno-num {
+  min-height: 30px; font-family: var(--mono); font-size: 11px; padding: 0 !important;
+}
+.keno-num.on { background: var(--select) !important; color: #fff !important; font-weight: 700; }
+.keno-num.drawn { outline: 2px solid var(--amber); outline-offset: -3px; }
+.keno-mine { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 6px; }
+
+/* daily bonus */
+.bonus-btn { font-size: 12px; }
+.bonus-btn:disabled { opacity: 0.55; }
+.pred-free-tag {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  color: #fff; background: var(--select); padding: 2px 7px;
+  border: 1px solid var(--bev-dark);
+}
+.adm-type-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.adm-type-row .ghost.on { background: var(--select) !important; color: #fff !important; }
+@media (max-width: 640px) {
+  .roul-nums { grid-template-columns: repeat(6, 1fr); }
+  .keno-grid { grid-template-columns: repeat(8, 1fr); }
+}

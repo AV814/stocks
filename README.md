@@ -65,6 +65,21 @@ The Admin tab includes a Treasury panel listing every player with their cash bal
 
 **VaporBall** — a nightly Powerball-style lottery. Pick 4 numbers (1-20) plus a VaporBall (1-5), ₡25 per ticket, draws every night at midnight ET (05:00 UTC). The winning numbers are a pure function of the draw index using the same deterministic PRNG as stock prices, so every client computes the identical draw and nobody — including the admin — can rig or predict it. The jackpot starts at ₡1,000, grows by a quarter of every ticket sold, and rolls over when nobody hits 4+VaporBall (co-winners split the pot). Settlement and prize claims use the same client-maintenance pattern as the market: the first browser to notice a completed draw does the bookkeeping (claims are checked for the past 7 draws, so nobody loses a prize by being offline a few days), and each winner's own client credits their prizes.
 
+
+## More Vapor Lounge games & governance
+
+**Roulette** — European single-zero wheel. Stack chips of any size across straight numbers (35:1), dozens (2:1), and even-money outside bets; zero sweeps the outside. ~2.7% house edge, the gentlest table in the Lounge.
+
+**Keno** — a shared draw every 3 minutes: 20 of 80 numbers derived deterministically from the round index, so every client sees the identical draw at the same moment. Pick up to 10 numbers, bet, and your ticket plays the next draw (top prize 25,000x on a perfect 10). Tickets persist locally and settle on your next visit if you close the tab.
+
+**Daily bonus** — the 🎁 button in the header grants ₡50 once per day (resets midnight ET).
+
+**Free-pick predictions** — the Admin tab can now post two kinds of predictions: the original wager type, and a free type where players just pick an answer at no cost and everyone who guessed right receives a fixed reward when it resolves. A credit faucet with a quiz attached.
+
+**Prediction timers** — predictions can be given an optional auto-lock timer (in hours). When it expires, betting closes automatically; manual Lock still works anytime, and Reopen clears the timer.
+
+**Force-sell (admin)** — the Treasury can liquidate any player's entire holdings into cash at current market prices (delisted stock wiped at zero), with a confirmation showing the position breakdown. For cheaters and other governance needs. Logged to the transfer feed.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

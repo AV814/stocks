@@ -5,7 +5,7 @@ service cloud.firestore {
     // ONE place to set the admin. Paste your UID here (same value
     // as ADMIN_UID in js/firebase-config.js).
     function isAdmin() {
-      return request.auth != null && request.auth.uid == "FfORyqwqoMYrmC9iAy8xYQevprG3";
+      return request.auth != null && request.auth.uid == "PASTE_YOUR_UID_HERE";
     }
 
     // Shared market roster. Any signed-in player may run maintenance
@@ -48,7 +48,7 @@ service cloud.firestore {
         )
         || (
           isAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash", "holdings"])
           && request.resource.data.cash is number
           && request.resource.data.cash >= 0
         )

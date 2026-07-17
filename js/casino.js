@@ -4,8 +4,10 @@
    runs a Firestore transaction on the player's own user doc.
    ============================================================ */
 
-let api = null;          // { fmt, toast, getCash, settle, el }
-let mode = "slots";      // "slots" | "blackjack"
+import { rand, deriveSeed } from "./market.js";
+
+let api = null;          // { fmt, toast, getCash, settle, el, renderLotto }
+let mode = "slots";      // slots | blackjack | roulette | scratch | keno | lotto
 
 /* ================= SLOTS =================
    Weighted reels, ~91% RTP:
@@ -278,6 +280,176 @@ async function bjFinish() {
   renderCasino();
 }
 
+
+/* ================= ROULETTE =================
+   European single-zero wheel (2.7% edge). Straight numbers pay
+   35:1, dozens 2:1, even-money bets 1:1. Stack chips on any mix
+   of cells, then spin. */
+
+const ROUL_REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const ROUL_KEY = "vapor-roulette-pending";
+let roul = { bets: {}, chip: 5, spinning: false, result: null, lastWin: 0, msg: "" };
+
+function roulTotal() { return Object.values(roul.bets).reduce((a, b) => a + b, 0); }
+function roulPlace(key) {
+  if (roul.spinning) return;
+  roul.bets[key] = (roul.bets[key] || 0) + Math.max(1, Math.floor(roul.chip));
+  renderCasino();
+}
+function roulPayout(bets, n) {
+  let win = 0;
+  for (const [key, amt] of Object.entries(bets)) {
+    if (key === `n${n}`) win += amt * 36;
+    else if (n === 0) continue;                       // outside bets lose on zero
+    else if (key === "red" && ROUL_REDS.has(n)) win += amt * 2;
+    else if (key === "black" && !ROUL_REDS.has(n)) win += amt * 2;
+    else if (key === "odd" && n % 2 === 1) win += amt * 2;
+    else if (key === "even" && n % 2 === 0) win += amt * 2;
+    else if (key === "low" && n <= 18) win += amt * 2;
+    else if (key === "high" && n >= 19) win += amt * 2;
+    else if (key === "d1" && n <= 12) win += amt * 3;
+    else if (key === "d2" && n >= 13 && n <= 24) win += amt * 3;
+    else if (key === "d3" && n >= 25) win += amt * 3;
+  }
+  return win;
+}
+async function roulSpin() {
+  if (roul.spinning) return;
+  const total = roulTotal();
+  if (total <= 0) { alert("Place some chips first."); return; }
+  try { await api.settle(-total, total); }
+  catch (e) { alert(e.message); return; }
+  const n = Math.floor(Math.random() * 37);
+  const win = roulPayout(roul.bets, n);
+  if (win > 0) localStorage.setItem(ROUL_KEY, JSON.stringify({ win }));  // survives a mid-spin reload
+  roul.spinning = true;
+  roul.result = null;
+  renderCasino();
+  const t0 = Date.now();
+  const iv = setInterval(async () => {
+    const dt = Date.now() - t0;
+    const el = document.querySelector("#roul-ball");
+    if (el && dt < 2000) {
+      const r = Math.floor(Math.random() * 37);
+      el.textContent = r;
+      el.className = "roul-ball " + (r === 0 ? "green" : ROUL_REDS.has(r) ? "red" : "black");
+    }
+    if (dt >= 2000) {
+      clearInterval(iv);
+      roul.spinning = false;
+      roul.result = n;
+      roul.lastWin = win;
+      roul.msg = win > 0
+        ? `${n} ${n === 0 ? "green" : ROUL_REDS.has(n) ? "red" : "black"} — you win ${api.fmt(win)} (net ${win - total >= 0 ? "+" : "-"}${api.fmt(Math.abs(win - total))})`
+        : `${n} ${n === 0 ? "green" : ROUL_REDS.has(n) ? "red" : "black"} — the house sweeps ${api.fmt(total)}.`;
+      roul.bets = {};
+      if (win > 0) {
+        try { await api.settle(win, 0); localStorage.removeItem(ROUL_KEY); }
+        catch (e) { console.error("roulette payout failed", e); }
+      }
+      if (win >= total * 10) api.toast("ROULETTE", roul.msg);
+      renderCasino();
+    }
+  }, 60);
+}
+
+/* ================= KENO =================
+   A shared draw every 3 minutes: 20 of 80 numbers, derived from
+   the round index with the market PRNG — every client sees the
+   same draw. Pick 1-10 numbers, bet, and your ticket plays the
+   next draw. Tickets persist in localStorage and settle on the
+   next visit if you close the tab. */
+
+const KENO_MS = 180000;
+const KENO_SALT = 0x6b656e6f;
+const KENO_KEY = "vapor-keno-tickets";
+const KENO_PAY = {
+  1: { 1: 3 },
+  2: { 2: 9 },
+  3: { 2: 2, 3: 16 },
+  4: { 2: 1, 3: 5, 4: 40 },
+  5: { 3: 2, 4: 12, 5: 150 },
+  6: { 3: 1, 4: 4, 5: 40, 6: 400 },
+  7: { 4: 2, 5: 15, 6: 80, 7: 1000 },
+  8: { 5: 8, 6: 40, 7: 400, 8: 5000 },
+  9: { 5: 4, 6: 15, 7: 80, 8: 1000, 9: 10000 },
+  10: { 5: 2, 6: 8, 7: 40, 8: 200, 9: 2000, 10: 25000 }
+};
+
+let kenoPicks = [];
+let kenoBet = 10;
+let kenoTickets = [];       // [{ round, picks, bet, paid, payout, hits }]
+let kenoLastMsg = "";
+
+const kenoRound = () => Math.floor(Date.now() / KENO_MS);
+function kenoDraw(round) {
+  const seed = deriveSeed(KENO_SALT, round);
+  const out = [];
+  let n = 0;
+  while (out.length < 20) {
+    const v = 1 + Math.floor(rand(seed, n++) * 80);
+    if (!out.includes(v)) out.push(v);
+  }
+  return out;
+}
+function kenoSave() { localStorage.setItem(KENO_KEY, JSON.stringify(kenoTickets)); }
+function kenoLoad() {
+  try { kenoTickets = JSON.parse(localStorage.getItem(KENO_KEY) || "[]"); }
+  catch { kenoTickets = []; }
+}
+async function kenoBuy() {
+  if (kenoPicks.length < 1) { alert("Pick at least one number."); return; }
+  const bet = Math.floor(Number(document.querySelector("#keno-bet")?.value || kenoBet));
+  if (!(bet > 0)) return;
+  if (bet > api.getCash()) { alert("Not enough credits."); return; }
+  try { await api.settle(-bet, bet); }
+  catch (e) { alert(e.message); return; }
+  kenoBet = bet;
+  kenoTickets.push({ round: kenoRound(), picks: [...kenoPicks].sort((a, b) => a - b), bet, paid: false, payout: 0, hits: null });
+  kenoPicks = [];
+  kenoSave();
+  api.toast("Keno ticket in", `Plays the draw in ${kenoCountdown()}.`);
+  renderCasino();
+}
+async function kenoResolveDue() {
+  const cur = kenoRound();
+  let changed = false;
+  for (const t of kenoTickets) {
+    if (t.paid || t.round >= cur) continue;           // ticket plays when its round ends
+    const draw = kenoDraw(t.round);
+    const hits = t.picks.filter((p) => draw.includes(p)).length;
+    const mult = (KENO_PAY[t.picks.length] || {})[hits] || 0;
+    t.hits = hits;
+    t.payout = t.bet * mult;
+    t.paid = true;
+    changed = true;
+    if (t.payout > 0) {
+      try { await api.settle(t.payout, 0); }
+      catch (e) { t.paid = false; console.error("keno payout failed, retrying later", e); continue; }
+      kenoLastMsg = `Last draw: ${hits}/${t.picks.length} hits — won ${api.fmt(t.payout)}!`;
+      if (mult >= 40) api.toast("KENO", kenoLastMsg);
+    } else {
+      kenoLastMsg = `Last draw: ${hits}/${t.picks.length} hits — no win.`;
+    }
+  }
+  if (changed) {
+    kenoTickets = kenoTickets.filter((t) => !t.paid || t.round >= cur - 5);  // keep a short history
+    kenoSave();
+    renderCasino();
+  }
+}
+function kenoCountdown() {
+  const ms = (kenoRound() + 1) * KENO_MS - Date.now();
+  const m = Math.floor(ms / 60000), sec = Math.floor((ms % 60000) / 1000);
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+setInterval(() => {
+  if (!api) return;
+  kenoResolveDue();
+  const cd = document.querySelector("#keno-cd");
+  if (cd) cd.textContent = kenoCountdown();
+}, 1000);
+
 /* ================= RENDER ================= */
 function cardHtml(c, hidden) {
   if (hidden) return `<span class="bj-card back">🂠</span>`;
@@ -366,17 +538,79 @@ function renderCasino() {
 
   const lottoHtml = `<div id="lotto-root"></div>`;
 
+  const numCell = (n) => {
+    const amt = roul.bets[`n${n}`];
+    const col = n === 0 ? "green" : ROUL_REDS.has(n) ? "red" : "black";
+    return `<button class="roul-cell ${col}" data-rb="n${n}">${n}${amt ? `<span class="chip">${amt}</span>` : ""}</button>`;
+  };
+  const outCell = (key, label, wide) => {
+    const amt = roul.bets[key];
+    return `<button class="roul-out ${wide ? "wide" : ""}" data-rb="${key}">${label}${amt ? `<span class="chip">${amt}</span>` : ""}</button>`;
+  };
+  const rouletteHtml = `
+    <div class="casino-panel">
+      <div class="roul-result">
+        <span id="roul-ball" class="roul-ball ${roul.result === null ? "" : roul.result === 0 ? "green" : ROUL_REDS.has(roul.result) ? "red" : "black"}">${roul.spinning ? "…" : roul.result ?? "—"}</span>
+      </div>
+      <div class="roul-board">
+        ${numCell(0)}
+        <div class="roul-nums">${Array.from({ length: 36 }, (_, i) => numCell(i + 1)).join("")}</div>
+      </div>
+      <div class="roul-outs">
+        ${outCell("d1", "1st 12")}${outCell("d2", "2nd 12")}${outCell("d3", "3rd 12")}
+        ${outCell("low", "1-18")}${outCell("red", "RED")}${outCell("black", "BLACK")}${outCell("high", "19-36")}
+        ${outCell("odd", "ODD")}${outCell("even", "EVEN")}
+      </div>
+      <div class="casino-controls" style="margin-top:12px">
+        <label class="muted" style="font-size:12px">Chip</label>
+        <input id="roul-chip" type="number" min="1" step="1" value="${roul.chip}">
+        <button class="ghost" id="roul-clear" ${roul.spinning ? "disabled" : ""}>Clear</button>
+        <button class="btn-spin" id="roul-spin" ${roul.spinning || roulTotal() === 0 ? "disabled" : ""}>Spin — ${api.fmt(roulTotal())}</button>
+      </div>
+      <div class="casino-msg ${roul.lastWin > 0 ? "up" : roul.result !== null ? "down" : ""}">${roul.spinning ? "No more bets…" : roul.msg || "Click cells to stack chips. Straight numbers pay 35:1, dozens 2:1, outside bets even money. Zero is the house's little friend."}</div>
+    </div>`;
+
+  const kenoDrawNow = kenoDraw(kenoRound() - 1);
+  const kenoHtml = `
+    <div class="casino-panel">
+      <div class="keno-head">
+        <span class="muted" style="font-size:12px">Next draw in</span>
+        <span id="keno-cd" class="keno-cd">${kenoCountdown()}</span>
+        <span class="muted" style="font-size:12px">· pick up to 10 · shared draw, same for everyone</span>
+      </div>
+      <div class="keno-grid">
+        ${Array.from({ length: 80 }, (_, i) => i + 1).map((n) =>
+          `<button class="keno-num ${kenoPicks.includes(n) ? "on" : ""} ${kenoDrawNow.includes(n) ? "drawn" : ""}" data-kn="${n}">${n}</button>`).join("")}
+      </div>
+      <p class="muted" style="font-size:11px;margin-top:6px">Highlighted cells were last draw's 20 numbers.</p>
+      <div class="casino-controls" style="margin-top:10px">
+        <input id="keno-bet" type="number" min="1" step="1" value="${kenoBet}">
+        <button class="btn-spin" id="keno-buy" ${kenoPicks.length ? "" : "disabled"}>Play ${kenoPicks.length || "—"} number${kenoPicks.length === 1 ? "" : "s"} next draw</button>
+        <button class="ghost" id="keno-clear">Clear</button>
+      </div>
+      <div class="casino-msg">${kenoLastMsg || "Your ticket plays the next shared draw. More picks, bigger top prizes."}</div>
+      ${kenoTickets.filter((t) => !t.paid).length ? `<div class="keno-mine">
+        ${kenoTickets.filter((t) => !t.paid).map((t) => `<div class="lotto-ticket"><span class="muted" style="font-size:11px">draw ${t.round === kenoRound() ? "next" : "pending"} · ${api.fmt(t.bet)}</span> ${t.picks.map((p) => `<span class="ball" style="width:24px;height:24px;font-size:10px">${p}</span>`).join("")}</div>`).join("")}
+      </div>` : ""}
+      <div class="paytable" style="margin-top:12px">
+        <div>Pick 1: 1hit 3x</div><div>Pick 3: 3hit 16x</div><div>Pick 5: 5hit 150x</div>
+        <div>Pick 7: 7hit 1000x</div><div>Pick 10: 10hit 25000x</div>
+      </div>
+    </div>`;
+
   el.innerHTML = `
     <div class="casino-head">
       <h3 class="sec" style="margin:0">The Vapor Lounge</h3>
       <div class="casino-tabs">
-        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
-        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
-        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratchers</button>
-        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">VaporBall</button>
+        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">🎰 Slots</button>
+        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">🃏 Blackjack</button>
+        <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">🔴 Roulette</button>
+        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">🎟️ Scratchers</button>
+        <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">🔢 Keno</button>
+        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">🎱 VaporBall</button>
       </div>
     </div>
-    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "scratch" ? scratchHtml : lottoHtml}
+    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : lottoHtml}
     <p class="muted" style="font-size:12px;margin-top:14px">House odds apply. The market is fairer. Cash: ${api.fmt(cash)}</p>
   `;
 
@@ -397,11 +631,28 @@ function renderCasino() {
   el.querySelector("#sc-all")?.addEventListener("click", () => {
     for (let i = 0; i < 9; i++) revealCell(i);
   });
+  el.querySelectorAll("[data-rb]").forEach((b) => b.addEventListener("click", () => roulPlace(b.dataset.rb)));
+  el.querySelector("#roul-chip")?.addEventListener("change", (e) => { roul.chip = Math.max(1, Math.floor(Number(e.target.value) || 1)); });
+  el.querySelector("#roul-clear")?.addEventListener("click", () => { roul.bets = {}; renderCasino(); });
+  el.querySelector("#roul-spin")?.addEventListener("click", roulSpin);
+  el.querySelectorAll("[data-kn]").forEach((b) => b.addEventListener("click", () => {
+    const n = Number(b.dataset.kn);
+    if (kenoPicks.includes(n)) kenoPicks = kenoPicks.filter((x) => x !== n);
+    else if (kenoPicks.length < 10) kenoPicks.push(n);
+    renderCasino();
+  }));
+  el.querySelector("#keno-buy")?.addEventListener("click", kenoBuy);
+  el.querySelector("#keno-clear")?.addEventListener("click", () => { kenoPicks = []; renderCasino(); });
   if (mode === "lotto") api.renderLotto();
 }
 
 export function initCasino(apiIn) {
   api = apiIn;
   loadScratch();
+  kenoLoad();
+  try {
+    const p = JSON.parse(localStorage.getItem(ROUL_KEY) || "null");
+    if (p && p.win > 0) api.settle(p.win, 0).then(() => localStorage.removeItem(ROUL_KEY)).catch(() => {});
+  } catch { localStorage.removeItem(ROUL_KEY); }
   return { render: renderCasino };
 }

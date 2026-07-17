@@ -40,6 +40,24 @@ const pct = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 
 /* ---- shared cash mover for casino: one transaction on my own doc.
    delta may be negative; minStake is the cash needed up front. ---- */
+const BONUS_AMT = 50;
+const bonusDay = () => Math.floor((Date.now() - 5 * 3600000) / 86400000); // midnight ET boundary
+async function claimDaily() {
+  if (!me || !myDoc) return;
+  if (myDoc.dailyClaim === bonusDay()) return;
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const u = snap.data();
+      if (u.dailyClaim === bonusDay()) throw new Error("Already claimed today. Greed is good, but patience pays.");
+      tx.update(ref, { cash: Math.round(((u.cash || 0) + BONUS_AMT) * 100) / 100, dailyClaim: bonusDay() });
+    });
+    toast("DAILY BONUS", `${fmt(BONUS_AMT)} claimed. Back tomorrow after midnight ET.`);
+  } catch (e) { alert(e.message); }
+}
+$("#bonus-btn").addEventListener("click", claimDaily);
+
 async function settle(delta, minStake = 0) {
   await runTransaction(db, async (tx) => {
     const ref = doc(db, "users", me.uid);
@@ -68,6 +86,10 @@ const predictions = initPredictions({
   me: () => me,
   myDoc: () => myDoc,
   users: () => allUsers,
+  priceOf: (tk) => {
+    const st = findStock(tk);
+    return st && !st.dead ? engine.price(st, Date.now()) : null;
+  },
   isAdmin: () => me?.uid === ADMIN_UID,
   el: () => $("#view-predict"),
   adminEl: () => $("#view-admin")
@@ -307,6 +329,11 @@ function renderCash() {
   if (!myDoc) return;
   $("#cash-pill").textContent = fmt(myDoc.cash);
   $("#avatar-btn").innerHTML = social.avatarHtml(myDoc, 30);
+  const claimed = myDoc.dailyClaim === bonusDay();
+  const bb = $("#bonus-btn");
+  bb.disabled = claimed;
+  bb.title = claimed ? "Daily bonus claimed — resets midnight ET" : "Claim your free ₡50 daily bonus";
+  bb.textContent = claimed ? "🎁 ✓" : "🎁 ₡50";
 }
 $("#avatar-btn").addEventListener("click", () => $("#avatar-file").click());
 $("#avatar-file").addEventListener("change", (e) => {

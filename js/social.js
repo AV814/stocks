@@ -113,7 +113,8 @@ function subscribeTransfers() {
         if (ch.type !== "added") return;
         const t = ch.doc.data();
         if (t.at <= watchStart) return;
-        if (t.amount >= 0) api.toast("CREDITS RECEIVED", `${t.fromName} sent you ${api.fmt(t.amount)}`);
+        if (t.kind === "liquidation") api.toast("POSITION LIQUIDATED", `THE HOUSE force-sold your holdings for ${api.fmt(t.amount)}`);
+        else if (t.amount >= 0) api.toast("CREDITS RECEIVED", `${t.fromName} sent you ${api.fmt(t.amount)}`);
         else api.toast("HOUSE ADJUSTMENT", `${t.fromName} removed ${api.fmt(-t.amount)} from your account`);
       });
     },

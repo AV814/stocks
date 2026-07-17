@@ -67,7 +67,7 @@ a { color: var(--amber); }
   background: #0a0d18; border-bottom: 1px solid var(--line);
   font-family: var(--mono); font-size: 13px; padding: 7px 0;
 }
-#tape { display: inline-block; animation: tape-scroll 45s linear infinite; will-change: transform; }
+#tape { display: inline-block; animation: tape-scroll 80s linear infinite; will-change: transform; }
 #tape-wrap:hover #tape { animation-play-state: paused; }
 @keyframes tape-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { #tape { animation: none; } }
@@ -604,3 +604,10 @@ header {
   .roul-nums { grid-template-columns: repeat(6, 1fr); }
   .keno-grid { grid-template-columns: repeat(8, 1fr); }
 }
+
+/* keno stats line */
+.keno-stat {
+  text-align: center; font-family: var(--mono); font-size: 12px;
+  color: var(--paper-dim); margin-bottom: 8px;
+}
+.keno-stat span { color: var(--amber); font-weight: 700; }

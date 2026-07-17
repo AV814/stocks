@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { rand, deriveSeed } from "./market.js";
+import { doc, onSnapshot, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let api = null;          // { fmt, toast, getCash, settle, el, renderLotto }
 let mode = "slots";      // slots | blackjack | roulette | scratch | keno | lotto
@@ -378,6 +379,17 @@ const KENO_PAY = {
 
 let kenoPicks = [];
 let kenoBet = 10;
+let kenoGames = null;        // global games-played counter (market/kenoStats)
+let kenoStatsSub = null;
+function watchKenoStats() {
+  if (kenoStatsSub || !api.db) return;
+  kenoStatsSub = onSnapshot(doc(api.db, "market", "kenoStats"),
+    (snap) => { kenoGames = snap.exists() ? (snap.data().games || 0) : 0; 
+      const el = document.querySelector("#keno-games");
+      if (el) el.textContent = kenoGames.toLocaleString("en-US");
+    },
+    () => { kenoStatsSub = null; });   // not signed in yet — retry on next render
+}
 let kenoTickets = [];       // [{ round, picks, bet, paid, payout, hits }]
 let kenoLastMsg = "";
 
@@ -406,6 +418,7 @@ async function kenoBuy() {
   catch (e) { alert(e.message); return; }
   kenoBet = bet;
   kenoTickets.push({ round: kenoRound(), picks: [...kenoPicks].sort((a, b) => a - b), bet, paid: false, payout: 0, hits: null });
+  setDoc(doc(api.db, "market", "kenoStats"), { games: increment(1) }, { merge: true }).catch(() => {});
   kenoPicks = [];
   kenoSave();
   api.toast("Keno ticket in", `Plays the draw in ${kenoCountdown()}.`);
@@ -578,13 +591,16 @@ function renderCasino() {
         <span id="keno-cd" class="keno-cd">${kenoCountdown()}</span>
         <span class="muted" style="font-size:12px">· pick up to 10 · shared draw, same for everyone</span>
       </div>
+      <div class="keno-stat">🎲 <span id="keno-games">${kenoGames === null ? "…" : kenoGames.toLocaleString("en-US")}</span> games played all-time</div>
       <div class="keno-grid">
         ${Array.from({ length: 80 }, (_, i) => i + 1).map((n) =>
           `<button class="keno-num ${kenoPicks.includes(n) ? "on" : ""} ${kenoDrawNow.includes(n) ? "drawn" : ""}" data-kn="${n}">${n}</button>`).join("")}
       </div>
       <p class="muted" style="font-size:11px;margin-top:6px">Highlighted cells were last draw's 20 numbers.</p>
       <div class="casino-controls" style="margin-top:10px">
-        <input id="keno-bet" type="number" min="1" step="1" value="${kenoBet}">
+        <input id="keno-qp-count" type="number" min="1" max="10" step="1" value="5" title="How many numbers to auto-pick">
+        <button class="ghost" id="keno-qp">Random pick</button>
+        <input id="keno-bet" type="number" min="1" step="1" value="${kenoBet}" title="Bet">
         <button class="btn-spin" id="keno-buy" ${kenoPicks.length ? "" : "disabled"}>Play ${kenoPicks.length || "—"} number${kenoPicks.length === 1 ? "" : "s"} next draw</button>
         <button class="ghost" id="keno-clear">Clear</button>
       </div>
@@ -643,6 +659,17 @@ function renderCasino() {
   }));
   el.querySelector("#keno-buy")?.addEventListener("click", kenoBuy);
   el.querySelector("#keno-clear")?.addEventListener("click", () => { kenoPicks = []; renderCasino(); });
+  el.querySelector("#keno-qp")?.addEventListener("click", () => {
+    const count = Math.min(10, Math.max(1, Math.floor(Number(document.querySelector("#keno-qp-count")?.value || 5))));
+    const picks = [];
+    while (picks.length < count) {
+      const n = 1 + Math.floor(Math.random() * 80);
+      if (!picks.includes(n)) picks.push(n);
+    }
+    kenoPicks = picks;
+    renderCasino();
+  });
+  if (mode === "keno") watchKenoStats();
   if (mode === "lotto") api.renderLotto();
 }
 

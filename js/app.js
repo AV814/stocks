@@ -75,7 +75,7 @@ const lottery = initLottery({
   el: () => $("#lotto-root")
 });
 const casino = initCasino({
-  fmt, toast,
+  db, fmt, toast,
   getCash: () => myDoc?.cash || 0,
   settle,
   el: () => $("#view-casino"),

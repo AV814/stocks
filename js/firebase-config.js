@@ -14,4 +14,4 @@ export const firebaseConfig = {
 // create/resolve predictions. Find it on the Predictions page after signing in
 // (shown at the bottom until this is set), or in Firebase console → Authentication.
 // IMPORTANT: paste the same UID into firestore.rules and republish the rules.
-export const ADMIN_UID = "PASTE_YOUR_UID_HERE";
+export const ADMIN_UID = "FfORyqwqoMYrmC9iAy8xYQevprG3";

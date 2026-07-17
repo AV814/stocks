@@ -602,12 +602,12 @@ function renderCasino() {
     <div class="casino-head">
       <h3 class="sec" style="margin:0">The Vapor Lounge</h3>
       <div class="casino-tabs">
-        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">🎰 Slots</button>
-        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">🃏 Blackjack</button>
-        <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">🔴 Roulette</button>
-        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">🎟️ Scratchers</button>
-        <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">🔢 Keno</button>
-        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">🎱 VaporBall</button>
+        <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
+        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
+        <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
+        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratch Tickets</button>
+        <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">Keno</button>
+        <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">Powerball</button>
       </div>
     </div>
     ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : lottoHtml}

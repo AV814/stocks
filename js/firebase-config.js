@@ -7,7 +7,11 @@ export const firebaseConfig = {
   storageBucket: "stocks-26371.firebasestorage.app",
   messagingSenderId: "815404976939",
   appId: "1:815404976939:web:0c3cab1d36ef529053136e",
-  measurementId: "G-PW62B1XJT8"
+  measurementId: "G-PW62B1XJT8",
+  // Realtime Database (used only for online presence). Verify this URL in
+  // Firebase console → Realtime Database — if your instance is in another
+  // region it will look like https://stocks-26371-default-rtdb.<region>.firebasedatabase.app
+  databaseURL: "https://stocks-26371-default-rtdb.firebaseio.com"
 };
 
 // Your Firebase Auth user ID. Only this account sees the Admin tab and can

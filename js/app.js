@@ -7,6 +7,10 @@ import {
   getFirestore, doc, collection, onSnapshot, runTransaction,
   setDoc, addDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getDatabase, ref as rtdbRef, onValue, set as rtdbSet, onDisconnect,
+  serverTimestamp as rtdbTs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig, ADMIN_UID } from "./firebase-config.js";
 import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
 import { initCasino } from "./casino.js";
@@ -17,6 +21,7 @@ import { initLottery } from "./lottery.js";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const engine = new MarketEngine();
 
 const STARTING_CASH = 1000;
@@ -544,32 +549,46 @@ function renderNews() {
 }
 
 
-/* ---- presence: a lastSeen heartbeat every minute. Firestore has no
-   built-in presence (that's a Realtime Database feature), so "online"
-   means "heartbeat within the last 2 minutes". ---- */
-const ONLINE_MS = 120000;
-let heartbeatIv = null;
-async function beat() {
-  if (!me) return;
-  try { await updateDoc(doc(db, "users", me.uid), { lastSeen: Date.now() }); }
-  catch (e) { /* ignore */ }
-}
-function startHeartbeat() {
+/* ---- presence via Realtime Database. Each client mirrors the
+   standard Firebase recipe: watch .info/connected, and on every
+   (re)connect first arm an onDisconnect that flips status/{uid} to
+   offline server-side, then mark ourselves online. The server flips
+   the flag the moment the tab closes or the connection drops — true
+   presence, no heartbeat. Firestore keeps everything else. ---- */
+let presence = {};            // uid -> { online, lastSeen }
+let presenceUnsubs = [];
+let presenceUid = null;       // whose status we armed (survives me being cleared at sign-out)
+let divIv = null;
+
+function startHeartbeat() {   // (kept name: called from auth flow)
   stopHeartbeat();
-  beat();
-  heartbeatIv = setInterval(() => {
-    beat();
-    checkDividends();
-  }, 60000);
-  document.addEventListener("visibilitychange", onVis);
+  presenceUid = me.uid;
+  const myStatus = rtdbRef(rtdb, `status/${me.uid}`);
+  const unsubConn = onValue(rtdbRef(rtdb, ".info/connected"), (snap) => {
+    if (snap.val() !== true) return;
+    onDisconnect(myStatus)
+      .set({ online: false, lastSeen: rtdbTs() })
+      .then(() => rtdbSet(myStatus, { online: true, lastSeen: rtdbTs() }))
+      .catch((e) => console.error("presence arm failed", e));
+  });
+  const unsubStatus = onValue(rtdbRef(rtdb, "status"), (snap) => {
+    presence = snap.val() || {};
+    if (view === "leaderboard" || view === "admin") render();
+  }, (e) => console.error("presence read failed (check RTDB rules/URL)", e));
+  presenceUnsubs = [unsubConn, unsubStatus];
+  divIv = setInterval(checkDividends, 60000);
   setTimeout(checkDividends, 4000);   // after market loads
 }
 function stopHeartbeat() {
-  if (heartbeatIv) { clearInterval(heartbeatIv); heartbeatIv = null; }
-  document.removeEventListener("visibilitychange", onVis);
+  presenceUnsubs.forEach((u) => u());
+  presenceUnsubs = [];
+  if (divIv) { clearInterval(divIv); divIv = null; }
+  if (presenceUid) rtdbSet(rtdbRef(rtdb, `status/${presenceUid}`), { online: false, lastSeen: Date.now() }).catch(() => {});
+  presenceUid = null;
+  presence = {};
 }
-function onVis() { if (document.visibilityState === "visible") beat(); }
-const isOnline = (u) => u.lastSeen && Date.now() - u.lastSeen < ONLINE_MS;
+const isOnline = (u) => presence[u.id]?.online === true;
+const lastSeenOf = (u) => presence[u.id]?.lastSeen || null;
 
 /* ---- dividends: good news pays holders. When a stock you own gets a
    positive news event (impact >= 0.15), you receive 5-10% of the share
@@ -668,7 +687,7 @@ function renderLeaderboard() {
       <div class="lb-val ${g >= 0 ? "up" : "down"}">${pct(g)}</div>
       <div class="lb-act">
         ${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}
-        <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : u.lastSeen ? "Last seen " + new Date(u.lastSeen).toLocaleString() : "Never seen online"}"></span>
+        <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : lastSeenOf(u) ? "Last seen " + new Date(lastSeenOf(u)).toLocaleString() : "Never seen online"}"></span>
       </div>
     </div>
     ${open ? `<div class="lb-send-row">

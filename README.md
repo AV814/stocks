@@ -85,7 +85,7 @@ The Admin tab includes a Treasury panel listing every player with their cash bal
 
 Every casino game shows an all-time global play counter at the top of its panel (spins, hands, tickets), stored in `market/casinoStats` and updated live. Each play also increments the player's personal `gameStats`.
 
-Hovering a name on the leaderboard (tap on mobile) opens a stat card: their current holdings priced live, and how many of each game they've played. On the right of each row, a green dot shows who's online — a `lastSeen` heartbeat written every minute; "online" means active within 2 minutes (Firestore has no true disconnect detection).
+Hovering a name on the leaderboard (tap on mobile) opens a stat card: their current holdings priced live, and how many of each game they've played. On the right of each row, a green dot shows who's online, powered by Firebase Realtime Database presence: each client arms a server-side `onDisconnect` handler, so the dot flips off the moment a tab closes or a connection drops. RTDB is used only for the `status/` presence node; all game data stays in Firestore.
 
 **Dividends**: when a stock receives positive news (impact ≥ 0.15), holders are paid 5-10% of the share price at event time per share — bigger news, bigger rate. Payouts are computed deterministically from the news events with a `lastDivAt` cursor on each player's doc, checked every minute while online and caught up on the next visit. Owning stocks now yields income, not just price exposure.
 

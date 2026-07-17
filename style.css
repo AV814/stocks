@@ -611,3 +611,29 @@ header {
   color: var(--paper-dim); margin-bottom: 8px;
 }
 .keno-stat span { color: var(--amber); font-weight: 700; }
+
+/* ---------- leaderboard hover card + presence ---------- */
+.lb-name { position: relative; cursor: pointer; }
+.lb-tip {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 30;
+  min-width: 240px; padding: 10px 12px;
+  background: var(--panel); border: 2px solid;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.35);
+}
+.lb-row:hover .lb-tip, .lb-row.tip-open .lb-tip { display: block; }
+.lb-tip-h {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  color: var(--amber); margin: 6px 0 3px; text-transform: uppercase;
+}
+.lb-tip-h:first-child { margin-top: 0; }
+.lb-tip-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--paper); padding: 1px 0;
+}
+.lb-act { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.lb-dot {
+  width: 10px; height: 10px; border-radius: 50% !important; flex: none;
+  background: #555c50; border: 1px solid var(--bev-dark);
+}
+.lb-dot.on { background: #7ec850; box-shadow: 0 0 4px #7ec850; }

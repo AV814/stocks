@@ -21,7 +21,8 @@
    ============================================================ */
 
 import {
-  doc, collection, runTransaction, onSnapshot, getDoc, getDocs, query, where
+  doc, collection, runTransaction, onSnapshot, getDoc, getDocs, query, where,
+  setDoc, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { rand, deriveSeed } from "./market.js";
 
@@ -229,6 +230,8 @@ async function buySlip() {
         });
       }
     });
+    setDoc(doc(api.db, "market", "casinoStats"), { lotto: increment(slip.length) }, { merge: true }).catch(() => {});
+    setDoc(doc(api.db, "users", uid), { gameStats: { lotto: increment(slip.length) } }, { merge: true }).catch(() => {});
     api.toast("Tickets in", `${slip.length} VaporBall ticket${slip.length > 1 ? "s" : ""} for ${api.fmt(cost)}. Draw ${drawCountdown()}.`);
     slip = [];
     await loadMine();

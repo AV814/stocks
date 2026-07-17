@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, collection, onSnapshot, runTransaction,
-  setDoc, addDoc, serverTimestamp
+  setDoc, addDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ADMIN_UID } from "./firebase-config.js";
 import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
@@ -76,6 +76,7 @@ const lottery = initLottery({
 });
 const casino = initCasino({
   db, fmt, toast,
+  me: () => me,
   getCash: () => myDoc?.cash || 0,
   settle,
   el: () => $("#view-casino"),
@@ -144,11 +145,13 @@ onAuthStateChanged(auth, (user) => {
   predictions.unsubscribePredictions();
   social.unsubscribeTransfers();
   lottery.unsubscribeLottery();
+  stopHeartbeat();
   $("#tab-admin").classList.toggle("hidden", !user || user.uid !== ADMIN_UID);
   if (!user) return;
   predictions.subscribePredictions();
   social.subscribeTransfers();
   lottery.subscribeLottery();
+  startHeartbeat();
 
   unsubUser = onSnapshot(doc(db, "users", user.uid), async (snap) => {
     if (!snap.exists()) {
@@ -540,6 +543,88 @@ function renderNews() {
     </div>`).join("");
 }
 
+
+/* ---- presence: a lastSeen heartbeat every minute. Firestore has no
+   built-in presence (that's a Realtime Database feature), so "online"
+   means "heartbeat within the last 2 minutes". ---- */
+const ONLINE_MS = 120000;
+let heartbeatIv = null;
+async function beat() {
+  if (!me) return;
+  try { await updateDoc(doc(db, "users", me.uid), { lastSeen: Date.now() }); }
+  catch (e) { /* ignore */ }
+}
+function startHeartbeat() {
+  stopHeartbeat();
+  beat();
+  heartbeatIv = setInterval(() => {
+    beat();
+    checkDividends();
+  }, 60000);
+  document.addEventListener("visibilitychange", onVis);
+  setTimeout(checkDividends, 4000);   // after market loads
+}
+function stopHeartbeat() {
+  if (heartbeatIv) { clearInterval(heartbeatIv); heartbeatIv = null; }
+  document.removeEventListener("visibilitychange", onVis);
+}
+function onVis() { if (document.visibilityState === "visible") beat(); }
+const isOnline = (u) => u.lastSeen && Date.now() - u.lastSeen < ONLINE_MS;
+
+/* ---- dividends: good news pays holders. When a stock you own gets a
+   positive news event (impact >= 0.15), you receive 5-10% of the share
+   price at event time, per share, scaled by how big the news was.
+   Deterministic events + a lastDivAt cursor on your own doc = every
+   client agrees and nothing double-pays. ---- */
+const DIV_MIN_IMPACT = 0.15;
+const divRate = (impact) => 0.05 + Math.min(Math.abs(impact), 1) * 0.05;
+let divBusy = false;
+async function checkDividends() {
+  if (divBusy || !me || !myDoc || !market) return;
+  divBusy = true;
+  try {
+    const nowT = Date.now();
+    const last = myDoc.lastDivAt;
+    if (!last) {   // first run: set the cursor, no retroactive windfall
+      await updateDoc(doc(db, "users", me.uid), { lastDivAt: nowT });
+      return;
+    }
+    const holdings = myDoc.holdings || {};
+    const held = market.stocks.filter((st) => (holdings[st.ticker] || 0) > 0);
+    if (!held.length) { await updateDoc(doc(db, "users", me.uid), { lastDivAt: nowT }); return; }
+    const events = engine.news(held, nowT, 500)
+      .filter((e) => e.time > last && e.time <= nowT && e.impact >= DIV_MIN_IMPACT && e.bucket !== "ipo" && e.bucket !== "bankrupt");
+    let total = 0;
+    const perTicker = {};
+    for (const e of events) {
+      const st = held.find((x) => x.ticker === e.ticker);
+      const shares = holdings[e.ticker] || 0;
+      if (!st || !shares) continue;
+      const px = engine.price(st, e.time);
+      if (px === null) continue;
+      const amt = shares * px * divRate(e.impact);
+      total += amt;
+      perTicker[e.ticker] = (perTicker[e.ticker] || 0) + amt;
+    }
+    total = Math.round(total * 100) / 100;
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const u = snap.data();
+      if (u.lastDivAt !== last) return;   // another tab already claimed this window
+      tx.update(ref, {
+        cash: Math.round(((u.cash || 0) + total) * 100) / 100,
+        lastDivAt: nowT
+      });
+    });
+    if (total > 0) {
+      const detail = Object.entries(perTicker).map(([tk, a]) => `${tk} ${fmt(a)}`).join(" · ");
+      toast("DIVIDENDS PAID", `Good news pays: ${detail}`);
+    }
+  } catch (e) { console.error("dividend check failed", e); }
+  finally { divBusy = false; }
+}
+
 /* ---------- leaderboard ---------- */
 const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -555,12 +640,36 @@ function renderLeaderboard() {
     const isMe = u.id === me?.uid;
     const name = escHtml(u.name || "Trader");
     const open = sendOpen === u.id;
-    return `<div class="lb-row ${isMe ? "me" : ""}">
+    const online = isOnline(u);
+
+    // hover card: holdings + games played
+    const holdRows = Object.entries(u.holdings || {})
+      .filter(([, sh]) => sh > 0)
+      .map(([tk, sh]) => {
+        const st = findStock(tk);
+        const px = st && !st.dead ? engine.price(st, Date.now()) : null;
+        return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
+      }).join("");
+    const gs = u.gameStats || {};
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"]]
+      .filter(([k]) => gs[k])
+      .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
+    const tip = `<div class="lb-tip">
+      <div class="lb-tip-h">Holdings</div>
+      ${holdRows || `<div class="lb-tip-row muted"><span>All cash, no positions</span></div>`}
+      <div class="lb-tip-h">Games played</div>
+      ${gameRows || `<div class="lb-tip-row muted"><span>Hasn't touched the Lounge</span></div>`}
+    </div>`;
+
+    return `<div class="lb-row ${isMe ? "me" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
-      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span></div>
+      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span>${tip}</div>
       <div class="lb-val">${fmt(u.total)}</div>
       <div class="lb-val ${g >= 0 ? "up" : "down"}">${pct(g)}</div>
-      <div class="lb-act">${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}</div>
+      <div class="lb-act">
+        ${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}
+        <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : u.lastSeen ? "Last seen " + new Date(u.lastSeen).toLocaleString() : "Never seen online"}"></span>
+      </div>
     </div>
     ${open ? `<div class="lb-send-row">
       <input type="number" id="send-amt" min="0.01" step="0.01" placeholder="Amount">
@@ -569,6 +678,8 @@ function renderLeaderboard() {
     </div>` : ""}`;
   }).join("");
 
+  $("#view-leaderboard").querySelectorAll(".lb-name").forEach((n) =>
+    n.addEventListener("click", () => n.closest(".lb-row").classList.toggle("tip-open")));
   $("#view-leaderboard").querySelectorAll(".lb-send").forEach((b) =>
     b.addEventListener("click", () => {
       sendOpen = sendOpen === b.dataset.uid ? null : b.dataset.uid;

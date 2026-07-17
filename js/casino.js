@@ -55,6 +55,7 @@ async function doSpin() {
   const net = payout - bet;
 
   // settle up front (single transaction: -bet +payout); animation plays regardless
+  bumpStat("slots");
   let settled = true;
   try { await api.settle(net, bet); }
   catch (e) { settled = false; slots.spinning = false; alert(e.message); renderCasino(); return; }
@@ -166,6 +167,7 @@ async function buyScratch(tier) {
   if (tier.price > api.getCash()) { alert("Not enough credits."); return; }
   try { await api.settle(-tier.price, tier.price); }   // price only — prize pays on full reveal
   catch (e) { alert(e.message); return; }
+  bumpStat("scratch");
   const mult = rollLadder();
   const { grid, winSym } = buildGrid(mult);
   scratch = { tier, grid, mult, prize: tier.price * mult, winSym, revealed: new Set(), done: false, paid: false };
@@ -225,6 +227,7 @@ async function bjDeal() {
   try { await api.settle(-bet, bet); }
   catch (e) { alert(e.message); return; }
 
+  bumpStat("blackjack");
   bj.deck = freshShoe();
   bj.player = [bj.deck.pop(), bj.deck.pop()];
   bj.dealer = [bj.deck.pop(), bj.deck.pop()];
@@ -320,6 +323,7 @@ async function roulSpin() {
   if (total <= 0) { alert("Place some chips first."); return; }
   try { await api.settle(-total, total); }
   catch (e) { alert(e.message); return; }
+  bumpStat("roulette");
   const n = Math.floor(Math.random() * 37);
   const win = roulPayout(roul.bets, n);
   if (win > 0) localStorage.setItem(ROUL_KEY, JSON.stringify({ win }));  // survives a mid-spin reload
@@ -379,17 +383,31 @@ const KENO_PAY = {
 
 let kenoPicks = [];
 let kenoBet = 10;
-let kenoGames = null;        // global games-played counter (market/kenoStats)
-let kenoStatsSub = null;
-function watchKenoStats() {
-  if (kenoStatsSub || !api.db) return;
-  kenoStatsSub = onSnapshot(doc(api.db, "market", "kenoStats"),
-    (snap) => { kenoGames = snap.exists() ? (snap.data().games || 0) : 0; 
-      const el = document.querySelector("#keno-games");
-      if (el) el.textContent = kenoGames.toLocaleString("en-US");
+/* Global play counters for every game, one shared doc in /market
+   (any signed-in player may write it — no rules change needed).
+   Each play also bumps the player's own gameStats for the
+   leaderboard hover card. */
+let gameStats = {};          // { slots, blackjack, roulette, scratch, keno, lotto }
+let statsSub = null;
+const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets" };
+function watchCasinoStats() {
+  if (statsSub || !api.db) return;
+  statsSub = onSnapshot(doc(api.db, "market", "casinoStats"),
+    (snap) => {
+      gameStats = snap.exists() ? snap.data() : {};
+      document.querySelectorAll("[data-stat]").forEach((el) => {
+        el.textContent = (gameStats[el.dataset.stat] || 0).toLocaleString("en-US");
+      });
     },
-    () => { kenoStatsSub = null; });   // not signed in yet — retry on next render
+    () => { statsSub = null; });   // not signed in yet — retry on next render
 }
+function bumpStat(game) {
+  if (!api.db) return;
+  setDoc(doc(api.db, "market", "casinoStats"), { [game]: increment(1) }, { merge: true }).catch(() => {});
+  const uid = api.me?.()?.uid;
+  if (uid) setDoc(doc(api.db, "users", uid), { gameStats: { [game]: increment(1) } }, { merge: true }).catch(() => {});
+}
+const statLine = (game) => `<div class="keno-stat">🎲 <span data-stat="${game}">${(gameStats[game] || 0).toLocaleString("en-US")}</span> ${STAT_LABEL[game]} played all-time</div>`;
 let kenoTickets = [];       // [{ round, picks, bet, paid, payout, hits }]
 let kenoLastMsg = "";
 
@@ -418,7 +436,7 @@ async function kenoBuy() {
   catch (e) { alert(e.message); return; }
   kenoBet = bet;
   kenoTickets.push({ round: kenoRound(), picks: [...kenoPicks].sort((a, b) => a - b), bet, paid: false, payout: 0, hits: null });
-  setDoc(doc(api.db, "market", "kenoStats"), { games: increment(1) }, { merge: true }).catch(() => {});
+  bumpStat("keno");
   kenoPicks = [];
   kenoSave();
   api.toast("Keno ticket in", `Plays the draw in ${kenoCountdown()}.`);
@@ -477,6 +495,7 @@ function renderCasino() {
 
   const slotsHtml = `
     <div class="casino-panel">
+      ${statLine("slots")}
       <div class="slot-reels">
         ${slots.reels.map((s, i) => `<div class="reel" id="reel-${i}">${s}</div>`).join("")}
       </div>
@@ -501,6 +520,7 @@ function renderCasino() {
   const hideHole = inHand;
   const bjHtml = `
     <div class="casino-panel">
+      ${statLine("blackjack")}
       <div class="bj-table">
         <div class="bj-row">
           <span class="bj-label">Dealer${bj.dealer.length && !hideHole ? " · " + handValue(bj.dealer) : ""}</span>
@@ -526,6 +546,7 @@ function renderCasino() {
 
   const scratchHtml = `
     <div class="casino-panel">
+      ${statLine("scratch")}
       ${scratch ? `
         <div class="scratch-name" style="color:${scratch.tier.hue}">${scratch.tier.name} · ${api.fmt(scratch.tier.price)}</div>
         <div class="scratch-grid">
@@ -562,6 +583,7 @@ function renderCasino() {
   };
   const rouletteHtml = `
     <div class="casino-panel">
+      ${statLine("roulette")}
       <div class="roul-result">
         <span id="roul-ball" class="roul-ball ${roul.result === null ? "" : roul.result === 0 ? "green" : ROUL_REDS.has(roul.result) ? "red" : "black"}">${roul.spinning ? "…" : roul.result ?? "—"}</span>
       </div>
@@ -586,12 +608,13 @@ function renderCasino() {
   const kenoDrawNow = kenoDraw(kenoRound() - 1);
   const kenoHtml = `
     <div class="casino-panel">
+      ${statLine("keno")}
       <div class="keno-head">
         <span class="muted" style="font-size:12px">Next draw in</span>
         <span id="keno-cd" class="keno-cd">${kenoCountdown()}</span>
         <span class="muted" style="font-size:12px">· pick up to 10 · shared draw, same for everyone</span>
       </div>
-      <div class="keno-stat">🎲 <span id="keno-games">${kenoGames === null ? "…" : kenoGames.toLocaleString("en-US")}</span> games played all-time</div>
+
       <div class="keno-grid">
         ${Array.from({ length: 80 }, (_, i) => i + 1).map((n) =>
           `<button class="keno-num ${kenoPicks.includes(n) ? "on" : ""} ${kenoDrawNow.includes(n) ? "drawn" : ""}" data-kn="${n}">${n}</button>`).join("")}
@@ -669,7 +692,7 @@ function renderCasino() {
     kenoPicks = picks;
     renderCasino();
   });
-  if (mode === "keno") watchKenoStats();
+  watchCasinoStats();
   if (mode === "lotto") api.renderLotto();
 }
 

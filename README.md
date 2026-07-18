@@ -89,6 +89,11 @@ Hovering a name on the leaderboard (tap on mobile) opens a stat card: their curr
 
 **Dividends**: when a stock receives positive news (impact ≥ 0.15), holders are paid 5-10% of the share price at event time per share — bigger news, bigger rate. Payouts are computed deterministically from the news events with a `lastDivAt` cursor on each player's doc, checked every minute while online and caught up on the next visit. Owning stocks now yields income, not just price exposure.
 
+
+## Trading floor chat
+
+The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. Enforced in the rules: authors can only post as themselves, text only, 500-character cap.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

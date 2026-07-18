@@ -639,3 +639,27 @@ header {
 }
 .lb-dot.on { background: #7ec850; box-shadow: 0 0 4px #7ec850; }
 @keyframes tip-drop { from { transform: translateY(-4px); opacity: 0; } }
+
+/* ---------- trading floor chat ---------- */
+.chat-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.chat-log {
+  height: min(52vh, 460px); overflow-y: auto;
+  background: var(--panel); border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+  padding: 10px 12px;
+}
+.chat-msg { display: flex; gap: 9px; padding: 5px 0; align-items: flex-start; }
+.chat-msg.mine .chat-name { color: var(--amber); }
+.chat-body { min-width: 0; flex: 1; }
+.chat-meta { display: flex; gap: 8px; align-items: baseline; }
+.chat-name { font-weight: 700; font-size: 12px; }
+.chat-time { font-family: var(--mono); font-size: 10px; color: var(--paper-dim); }
+.chat-del {
+  border: none !important; background: none !important; color: var(--paper-dim);
+  font-size: 10px; padding: 0 3px; opacity: 0; box-shadow: none !important;
+}
+.chat-msg:hover .chat-del { opacity: 1; }
+.chat-del:hover { color: var(--down); }
+.chat-text { font-size: 13px; word-wrap: break-word; white-space: pre-wrap; }
+.chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
+.chat-input-row input { flex: 1; padding: 10px 12px; }

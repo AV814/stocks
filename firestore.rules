@@ -84,6 +84,20 @@ service cloud.firestore {
       }
     }
 
+    // Trading floor chat. Everyone signed in reads and posts as
+    // themselves (text only, capped length). You can delete your own
+    // messages; the admin can delete anyone's.
+    match /chat/{msgId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500;
+      allow delete: if request.auth != null
+        && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
     // Prediction markets. Only the admin creates/locks/resolves/voids
     // questions. Players write only their own bet doc.
     match /predictions/{predId} {

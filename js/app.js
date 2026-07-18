@@ -17,6 +17,7 @@ import { initCasino } from "./casino.js";
 import { initPredictions } from "./predictions.js";
 import { initSocial } from "./social.js";
 import { initLottery } from "./lottery.js";
+import { initChat } from "./chat.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -45,7 +46,7 @@ const pct = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 
 /* ---- shared cash mover for casino: one transaction on my own doc.
    delta may be negative; minStake is the cash needed up front. ---- */
-const BONUS_AMT = 100;
+const BONUS_AMT = 50;
 const bonusDay = () => Math.floor((Date.now() - 5 * 3600000) / 86400000); // midnight ET boundary
 async function claimDaily() {
   if (!me || !myDoc) return;
@@ -105,6 +106,18 @@ const social = initSocial({
   me: () => me,
   myDoc: () => myDoc
 });
+const chat = initChat({
+  db,
+  me: () => me,
+  myDoc: () => myDoc,
+  users: () => allUsers,
+  isAdmin: () => me?.uid === ADMIN_UID,
+  avatarHtml: (u, n) => social.avatarHtml(u, n),
+  isViewing: () => view === "chat",
+  dotEl: () => $("#chat-dot"),
+  el: () => $("#view-chat"),
+  onlineCount: () => allUsers.filter((u) => isOnline(u)).length
+});
 
 /* ================= AUTH ================= */
 let signupMode = false;
@@ -150,12 +163,14 @@ onAuthStateChanged(auth, (user) => {
   predictions.unsubscribePredictions();
   social.unsubscribeTransfers();
   lottery.unsubscribeLottery();
+  chat.unsubscribeChat();
   stopHeartbeat();
   $("#tab-admin").classList.toggle("hidden", !user || user.uid !== ADMIN_UID);
   if (!user) return;
   predictions.subscribePredictions();
   social.subscribeTransfers();
   lottery.subscribeLottery();
+  chat.subscribeChat();
   startHeartbeat();
 
   unsubUser = onSnapshot(doc(db, "users", user.uid), async (snap) => {
@@ -328,7 +343,7 @@ document.querySelectorAll(".tab").forEach((b) =>
 );
 
 function showView(id) {
-  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "admin"].forEach((v) =>
+  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "admin"].forEach((v) =>
     $(`#view-${v}`).classList.toggle("hidden", v !== id)
   );
 }
@@ -341,7 +356,7 @@ function renderCash() {
   const bb = $("#bonus-btn");
   bb.disabled = claimed;
   bb.title = claimed ? "Daily bonus claimed — resets midnight ET" : "Claim your free ₡50 daily bonus";
-  bb.textContent = claimed ? "✓" : "₡100";
+  bb.textContent = claimed ? "🎁 ✓" : "🎁 ₡50";
 }
 $("#avatar-btn").addEventListener("click", () => $("#avatar-file").click());
 $("#avatar-file").addEventListener("change", (e) => {
@@ -360,6 +375,7 @@ function render() {
   else if (view === "leaderboard") renderLeaderboard();
   else if (view === "casino") casino.render();
   else if (view === "predict") predictions.renderPredictions();
+  else if (view === "chat") chat.renderChat();
   else if (view === "admin") predictions.renderAdmin();
 }
 

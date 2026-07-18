@@ -731,17 +731,23 @@ header {
   color: var(--amber); font-size: 16px;
 }
 .pp-cell {
-  width: 46px; height: 46px; padding: 0 !important;
-  font-family: var(--mono); font-size: 26px; line-height: 1;
-  color: var(--paper-dim);
+  width: 48px; height: 48px; padding: 3px !important;
+  color: #96a086; cursor: grab;
+}
+.pp-cell svg { width: 100%; height: 100%; display: block; }
+.pp-cell.sel {
+  color: #fff;
+  background: var(--select) !important;
 }
 .pp-cell.filled {
   color: var(--amber) !important;
   background: #333a2e !important;
   border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important;
-  text-shadow: 0 0 6px rgba(196,181,80,0.5);
+  cursor: default;
+  filter: drop-shadow(0 0 4px rgba(196,181,80,0.5));
 }
-.pp-cell.blocked { color: #555c50; cursor: not-allowed; }
+.pp-cell.blocked { color: #4a5142; cursor: not-allowed; }
+.pp-cell:active { cursor: grabbing; }
 @media (max-width: 640px) {
-  .pp-cell { width: 38px; height: 38px; font-size: 21px; }
+  .pp-cell { width: 40px; height: 40px; }
 }

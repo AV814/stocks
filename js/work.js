@@ -314,43 +314,111 @@ function hkHtml() {
 
 
 /* ================= PIPES =================
-   BioShock-style hack: fluid starts flowing from the inlet after
-   a grace period and advances one tile at a time. Click tiles to
-   rotate them and route the flow to the outlet before it bursts
-   out of an unconnected pipe. Filled tiles are locked.
-   Directions as bitmask: U=1 R=2 D=4 L=8. */
+   BioShock-style hack, swap edition. The board is dealt from a
+   guaranteed-solvable inventory: a hidden solution path is built
+   first, then its pieces are shuffled across the grid. Drag a
+   tile onto another (or tap one, then the other) to swap them.
+   No rotation — find the piece you need and move it. Fluid
+   starts after a grace period, advances one tile at a time, and
+   locks every pipe it fills. Directions: U=1 R=2 D=4 L=8. */
 
 const PIPE_W = 7, PIPE_H = 5;
-const PIPE_GRACE = 6000, PIPE_FLOW = 1500;
-const PIPE_CHAR = { 5: "║", 10: "═", 3: "╚", 6: "╔", 12: "╗", 9: "╝", 15: "╬" };
-const rotMask = (m) => ((m << 1) & 15) | (m >> 3);
+const PIPE_GRACE = 8000, PIPE_FLOW = 1500;
 const oppDir = (d) => ((d << 2) | (d >> 2)) & 15;
-let pipes = null;  // { grid, blocked:Set, filled:Set, inRow, outRow, fluidAt, fluidIn, t0, timer, phase }
+let pipes = null;
+
+// draw a tile: thick stubs from the center to each open side
+function ppSvg(m, blocked) {
+  if (blocked) return `<svg viewBox="0 0 46 46"><rect x="6" y="6" width="34" height="34" fill="currentColor" opacity="0.35"/></svg>`;
+  const seg = [];
+  if (m & 1) seg.push('<line x1="23" y1="23" x2="23" y2="0"/>');
+  if (m & 2) seg.push('<line x1="23" y1="23" x2="46" y2="23"/>');
+  if (m & 4) seg.push('<line x1="23" y1="23" x2="23" y2="46"/>');
+  if (m & 8) seg.push('<line x1="23" y1="23" x2="0" y2="23"/>');
+  return `<svg viewBox="0 0 46 46" stroke="currentColor" stroke-width="11" stroke-linecap="round">
+    ${seg.join("")}<circle cx="23" cy="23" r="6.5" fill="currentColor" stroke="none"/></svg>`;
+}
+
+// random solution walk from inlet to outlet; returns [{i, mask}]
+function ppSolutionPath(inRow, outRow) {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    let x = 0, y = inRow, inSide = 8;
+    const visited = new Set([y * PIPE_W]);
+    const path = [];
+    let ok = false;
+    for (let steps = 0; steps < 60; steps++) {
+      if (x === PIPE_W - 1 && y === outRow) {
+        path.push({ i: y * PIPE_W + x, mask: inSide | 2 });   // exit right
+        ok = true;
+        break;
+      }
+      const cands = [];
+      const tryDir = (d, dx, dy, w) => {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= PIPE_W || ny < 0 || ny >= PIPE_H) return;
+        if (visited.has(ny * PIPE_W + nx)) return;
+        if (nx === PIPE_W - 1 && ny !== outRow && d === 2) w *= 0.25;  // discourage early last-column entry
+        cands.push({ d, nx, ny, w });
+      };
+      tryDir(2, 1, 0, 5);
+      tryDir(4, 0, 1, y < outRow ? 3 : 1);
+      tryDir(1, 0, -1, y > outRow ? 3 : 1);
+      tryDir(8, -1, 0, 0.4);
+      if (!cands.length) break;
+      let r = Math.random() * cands.reduce((a, c) => a + c.w, 0);
+      let pick = cands[0];
+      for (const c of cands) { r -= c.w; if (r <= 0) { pick = c; break; } }
+      path.push({ i: y * PIPE_W + x, mask: inSide | pick.d });
+      x = pick.nx; y = pick.ny;
+      inSide = oppDir(pick.d);
+      visited.add(y * PIPE_W + x);
+    }
+    if (ok) return path;
+  }
+  // fallback: straight shot along the inlet row then vertical to outlet (always representable)
+  const path = [];
+  for (let x = 0; x < PIPE_W - 1; x++) path.push({ i: inRow * PIPE_W + x, mask: 10 });
+  const down = outRow > inRow;
+  path.push({ i: inRow * PIPE_W + PIPE_W - 1, mask: 8 | (inRow === outRow ? 2 : down ? 4 : 1) });
+  for (let y = inRow + (down ? 1 : -1); y !== outRow; y += down ? 1 : -1)
+    path.push({ i: y * PIPE_W + PIPE_W - 1, mask: 5 });
+  if (inRow !== outRow) path.push({ i: outRow * PIPE_W + PIPE_W - 1, mask: (down ? 1 : 4) | 2 });
+  return path;
+}
 
 function ppNew() {
   ppStop();
-  const grid = [];
-  const blocked = new Set();
-  for (let i = 0; i < PIPE_W * PIPE_H; i++) {
-    const r = Math.random();
-    let m;
-    if (r < 0.40) m = [3, 6, 12, 9][Math.floor(Math.random() * 4)];
-    else if (r < 0.78) m = Math.random() < 0.5 ? 5 : 10;
-    else if (r < 0.90) m = 15;
-    else { m = 0; blocked.add(i); }
-    grid.push(m);
-  }
   const inRow = Math.floor(Math.random() * PIPE_H);
   const outRow = Math.floor(Math.random() * PIPE_H);
-  blocked.delete(inRow * PIPE_W);                       // inlet + outlet cells stay usable
-  if (grid[inRow * PIPE_W] === 0) grid[inRow * PIPE_W] = 10;
-  blocked.delete(outRow * PIPE_W + PIPE_W - 1);
-  if (grid[outRow * PIPE_W + PIPE_W - 1] === 0) grid[outRow * PIPE_W + PIPE_W - 1] = 10;
+  const sol = ppSolutionPath(inRow, outRow);
+  const solCells = new Set(sol.map((p) => p.i));
+
+  // blocked cells stay off the solution path so it's always rebuildable
+  const blocked = new Set();
+  while (blocked.size < 2) {
+    const i = Math.floor(Math.random() * PIPE_W * PIPE_H);
+    if (!solCells.has(i) && i !== inRow * PIPE_W && i !== outRow * PIPE_W + PIPE_W - 1) blocked.add(i);
+  }
+
+  // inventory: solution pieces + random filler, shuffled over open cells
+  const openCells = [];
+  for (let i = 0; i < PIPE_W * PIPE_H; i++) if (!blocked.has(i)) openCells.push(i);
+  const inventory = sol.map((p) => p.mask);
+  const fillerPool = [3, 6, 12, 9, 3, 6, 12, 9, 5, 10, 5, 10, 15];
+  while (inventory.length < openCells.length)
+    inventory.push(fillerPool[Math.floor(Math.random() * fillerPool.length)]);
+  for (let i = inventory.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [inventory[i], inventory[j]] = [inventory[j], inventory[i]];
+  }
+  const grid = new Array(PIPE_W * PIPE_H).fill(0);
+  openCells.forEach((c, k) => { grid[c] = inventory[k]; });
+
   pipes = {
     grid, blocked, filled: new Set(),
     inRow, outRow,
-    fluidAt: null, fluidIn: null,
-    t0: Date.now(), timer: null, phase: "build"   // build | flowing | won | burst
+    fluidAt: null, fluidIn: null, sel: null,
+    t0: Date.now(), timer: null, uiIv: null, phase: "build"
   };
   pipes.timer = setTimeout(ppFlowStart, PIPE_GRACE);
   ppTickUi();
@@ -365,15 +433,15 @@ function ppTickUi() {
     const el = document.querySelector("#pp-status");
     if (el && pipes.phase === "build") {
       const left = Math.max(0, Math.ceil((pipes.t0 + PIPE_GRACE - Date.now()) / 1000));
-      el.textContent = `Fluid in ${left}s — build!`;
+      el.textContent = `Fluid in ${left}s — swap pipes into place!`;
     }
   }, 250);
 }
 function ppFlowStart() {
   if (!pipes || pipes.phase !== "build") return;
   pipes.phase = "flowing";
-  pipes.fluidAt = pipes.inRow * PIPE_W;    // entering the inlet cell from the left wall
-  pipes.fluidIn = 8;                       // L
+  pipes.fluidAt = pipes.inRow * PIPE_W;
+  pipes.fluidIn = 8;
   ppAdvance(true);
   pipes.timer = setInterval(() => ppAdvance(false), PIPE_FLOW);
 }
@@ -386,11 +454,10 @@ function ppAdvance(entering) {
     renderWork();
     return;
   }
-  // leave the current cell: crosses go straight; others take the one other opening
   let out;
   if (m === 15) out = oppDir(inSide);
   else out = m & ~inSide;
-  if (!out || (out & (out - 1))) return ppBurst();   // no exit or ambiguous piece
+  if (!out || (out & (out - 1))) return ppBurst();
   const x = i % PIPE_W, y = Math.floor(i / PIPE_W);
   let nx = x, ny = y;
   if (out === 1) ny--; else if (out === 2) nx++; else if (out === 4) ny++; else nx--;
@@ -407,7 +474,7 @@ function ppWin() {
   ppStop();
   pipes.phase = "won";
   const secs = (Date.now() - pipes.t0) / 1000;
-  const bonus = Math.round(30 * Math.max(0, Math.min(1, (75 - secs) / 50)));   // full <= 25s
+  const bonus = Math.round(30 * Math.max(0, Math.min(1, (75 - secs) / 50)));
   payWork("pipes", 60 + bonus, `routing the flow in ${Math.round(secs)}s`);
 }
 function ppBurst() {
@@ -415,11 +482,19 @@ function ppBurst() {
   pipes.phase = "burst";
   renderWork();
 }
-function ppRotate(i) {
-  if (!pipes || pipes.phase === "won" || pipes.phase === "burst") return;
-  if (pipes.blocked.has(i) || pipes.filled.has(i)) return;
-  pipes.grid[i] = rotMask(pipes.grid[i]);
+const ppSwappable = (i) =>
+  pipes && (pipes.phase === "build" || pipes.phase === "flowing")
+  && !pipes.blocked.has(i) && !pipes.filled.has(i);
+function ppSwap(a, b) {
+  if (a === b || !ppSwappable(a) || !ppSwappable(b)) { pipes.sel = null; renderWork(); return; }
+  [pipes.grid[a], pipes.grid[b]] = [pipes.grid[b], pipes.grid[a]];
+  pipes.sel = null;
   renderWork();
+}
+function ppTap(i) {
+  if (!ppSwappable(i)) { pipes.sel = null; renderWork(); return; }
+  if (pipes.sel === null) { pipes.sel = i; renderWork(); }
+  else ppSwap(pipes.sel, i);
 }
 function ppHtml() {
   if (!pipes) ppNew();
@@ -428,9 +503,10 @@ function ppHtml() {
     let row = `<div class="pp-edge">${y === pipes.inRow ? "▶" : ""}</div>`;
     for (let x = 0; x < PIPE_W; x++) {
       const i = y * PIPE_W + x;
-      const m = pipes.grid[i];
       const cls = pipes.blocked.has(i) ? "blocked" : pipes.filled.has(i) ? "filled" : "";
-      row += `<button class="pp-cell ${cls}" data-pp="${i}">${pipes.blocked.has(i) ? "▓" : PIPE_CHAR[m] || ""}</button>`;
+      const sel = pipes.sel === i ? "sel" : "";
+      const draggable = ppSwappable(i) ? 'draggable="true"' : "";
+      row += `<button class="pp-cell ${cls} ${sel}" data-pp="${i}" ${draggable}>${ppSvg(pipes.grid[i], pipes.blocked.has(i))}</button>`;
     }
     row += `<div class="pp-edge">${y === pipes.outRow ? "▶" : ""}</div>`;
     rows.push(`<div class="pp-row">${row}</div>`);
@@ -442,14 +518,14 @@ function ppHtml() {
   return `
     ${capLine("pipes")}
     <div class="ms-bar">
-      <span class="muted" style="font-size:12px" id="pp-status">${status || "Fluid incoming — build!"}</span>
+      <span class="muted" style="font-size:12px" id="pp-status">${status || "Fluid incoming — swap pipes into place!"}</span>
       <button class="ghost" id="pp-new">New board</button>
     </div>
     <div class="pp-grid">${rows.join("")}</div>
     <div class="casino-msg ${pipes.phase === "won" ? "up" : pipes.phase === "burst" ? "down" : ""}">${
       pipes.phase === "won" ? "₡60 + speed bonus, paid." :
       pipes.phase === "burst" ? "No pay for flooded floors. New board to try again." :
-      "Click tiles to rotate. Route ▶ inlet to ▶ outlet before the fluid outruns your plumbing. Filled pipes lock."}</div>`;
+      "Drag a tile onto another to swap them (or tap one, then the other). A pipe's arms show exactly where fluid can enter and leave. Route ▶ to ▶ — every piece you need is on the board somewhere. Filled pipes lock."}</div>`;
 }
 
 /* ================= RENDER ================= */
@@ -514,8 +590,22 @@ export function renderWork() {
     hkIn.addEventListener("keydown", (e) => { if (e.key === "Enter" && hkIn.value.trim()) hkGuess(hkIn.value); });
     if (mode === "hack") hkIn.focus();
   }
-  el.querySelectorAll("[data-pp]").forEach((c) =>
-    c.addEventListener("click", () => ppRotate(Number(c.dataset.pp))));
+  el.querySelectorAll("[data-pp]").forEach((c) => {
+    const i = Number(c.dataset.pp);
+    c.addEventListener("click", () => ppTap(i));
+    c.addEventListener("dragstart", (e) => {
+      if (!ppSwappable(i)) { e.preventDefault(); return; }
+      pipes.sel = i;
+      e.dataTransfer.setData("text/plain", String(i));
+      e.dataTransfer.effectAllowed = "move";
+    });
+    c.addEventListener("dragover", (e) => { if (ppSwappable(i)) e.preventDefault(); });
+    c.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const from = Number(e.dataTransfer.getData("text/plain"));
+      if (!isNaN(from)) ppSwap(from, i);
+    });
+  });
   el.querySelector("#pp-new")?.addEventListener("click", ppNew);
 
   const hkLog = el.querySelector("#hk-log");

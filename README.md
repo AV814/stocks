@@ -101,7 +101,7 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 - **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
 - **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
-- **Pipes** — a BioShock-style hack: rotate pipe tiles to route the flow from inlet to outlet. Fluid starts moving after a 6-second grace and advances every 1.5s; filled pipes lock behind it and an unconnected pipe bursts. ₡60 + speed bonus up to ₡30.
+- **Pipes** — a BioShock-style hack: drag tiles onto each other to swap them (or tap-tap on mobile) and route the flow from inlet to outlet — no rotation, just like the original. Every board is dealt solvable: a hidden solution path is generated first and its pieces shuffled across the grid for you to find. Fluid starts after an 8-second grace, advances every 1.5s, locks pipes it fills, and bursts on any unconnected pipe. ₡60 + speed bonus up to ₡30.
 - **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
 
 Work plays are counted in the same global and per-player stat counters as casino games.

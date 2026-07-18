@@ -665,7 +665,6 @@ function renderCasino() {
       </div>
     </div>
     ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : lottoHtml}
-    <p class="muted" style="font-size:12px;margin-top:14px">House odds apply. The market is fairer. Cash: ${api.fmt(cash)}</p>
   `;
 
   el.querySelectorAll("[data-cmode]").forEach((b) =>

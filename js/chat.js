@@ -88,14 +88,43 @@ function clearCanvas() {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, PIX, PIX);
 }
-function paintAt(cv, e) {
+let lastPx = null;   // previous pixel of the current stroke
+function pxOf(cv, clientX, clientY) {
   const r = cv.getBoundingClientRect();
-  const x = Math.floor((e.clientX - r.left) / r.width * PIX);
-  const y = Math.floor((e.clientY - r.top) / r.height * PIX);
+  return {
+    x: Math.floor((clientX - r.left) / r.width * PIX),
+    y: Math.floor((clientY - r.top) / r.height * PIX)
+  };
+}
+function plot(ctx, x, y) {
   if (x < 0 || x >= PIX || y < 0 || y >= PIX) return;
+  ctx.fillRect(x, y, 1, 1);
+}
+// Bresenham line so fast strokes leave no gaps between sampled points
+function plotLine(ctx, x0, y0, x1, y1) {
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    plot(ctx, x0, y0);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+function paintAt(cv, e, strokeStart) {
   const ctx = cv.getContext("2d");
   ctx.fillStyle = drawColor;
-  ctx.fillRect(x, y, 1, 1);
+  // use the browser's coalesced samples when available — these are the
+  // high-rate points between pointermove frames
+  const points = (e.getCoalescedEvents?.() || [e]).map((ev) => pxOf(cv, ev.clientX, ev.clientY));
+  if (strokeStart) lastPx = null;
+  for (const p of points) {
+    if (lastPx) plotLine(ctx, lastPx.x, lastPx.y, p.x, p.y);
+    else plot(ctx, p.x, p.y);
+    lastPx = p;
+  }
 }
 function toggleDraw(force) {
   drawOpen = force !== undefined ? force : !drawOpen;
@@ -188,8 +217,9 @@ export function renderChat() {
       }));
     const cv = el.querySelector("#chat-canvas");
     clearCanvas();
-    cv.addEventListener("pointerdown", (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); paintAt(cv, e); });
+    cv.addEventListener("pointerdown", (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); paintAt(cv, e, true); });
     cv.addEventListener("pointermove", (e) => { if (e.buttons & 1) paintAt(cv, e); });
+    cv.addEventListener("pointerup", () => { lastPx = null; });
   }
   updateLog();
   api.dotEl()?.classList.add("hidden");

@@ -92,8 +92,18 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
-        && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 500;
+        && request.resource.data.text.size() <= 500
+        && (
+          // a text message...
+          (request.resource.data.text.size() > 0 && !("img" in request.resource.data))
+          // ...or a small pixel doodle
+          || (
+            "img" in request.resource.data
+            && request.resource.data.img is string
+            && request.resource.data.img.size() <= 12000
+            && request.resource.data.img.matches('data:image/png;base64,[A-Za-z0-9+/=]+')
+          )
+        );
       allow delete: if request.auth != null
         && (resource.data.uid == request.auth.uid || isAdmin());
     }

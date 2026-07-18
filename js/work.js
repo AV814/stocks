@@ -404,7 +404,7 @@ function ppNew() {
   const openCells = [];
   for (let i = 0; i < PIPE_W * PIPE_H; i++) if (!blocked.has(i)) openCells.push(i);
   const inventory = sol.map((p) => p.mask);
-  const fillerPool = [3, 6, 12, 9, 3, 6, 12, 9, 5, 10, 5, 10, 15];
+  const fillerPool = [3, 6, 12, 9, 3, 6, 12, 9, 5, 10, 5, 10];
   while (inventory.length < openCells.length)
     inventory.push(fillerPool[Math.floor(Math.random() * fillerPool.length)]);
   for (let i = inventory.length - 1; i > 0; i--) {

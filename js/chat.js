@@ -16,6 +16,12 @@ let firstLoad = true;
 let lastSentAt = 0;
 
 const MAX_LEN = 300;
+const PIX = 50;                       // 50x50 pixel doodle card
+const IMG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
+const PALETTE = ["#000000", "#ffffff", "#c0392b", "#e8a33d", "#e8d44d", "#5aa03c",
+                 "#3aa6a6", "#3a6ea5", "#7d4fa5", "#d976a8", "#7a5230", "#8a9280"];
+let drawColor = "#000000";
+let drawOpen = false;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -56,6 +62,47 @@ async function send() {
   } catch (e) { alert(e.message); }
 }
 
+async function sendDoodle() {
+  const cv = document.querySelector("#chat-canvas");
+  if (!cv || !api.me()) return;
+  if (Date.now() - lastSentAt < 1500) return;
+  lastSentAt = Date.now();
+  const img = cv.toDataURL("image/png");
+  if (img.length > 11500) { alert("That drawing is too detailed to send — simplify it a bit."); return; }
+  try {
+    await addDoc(collection(api.db, "chat"), {
+      uid: api.me().uid,
+      name: api.myDoc()?.name || "Trader",
+      text: "",
+      img,
+      at: Date.now()
+    });
+    clearCanvas();
+    toggleDraw(false);
+  } catch (e) { alert(e.message); }
+}
+function clearCanvas() {
+  const cv = document.querySelector("#chat-canvas");
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, PIX, PIX);
+}
+function paintAt(cv, e) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * PIX);
+  const y = Math.floor((e.clientY - r.top) / r.height * PIX);
+  if (x < 0 || x >= PIX || y < 0 || y >= PIX) return;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = drawColor;
+  ctx.fillRect(x, y, 1, 1);
+}
+function toggleDraw(force) {
+  drawOpen = force !== undefined ? force : !drawOpen;
+  document.querySelector("#chat-draw-panel")?.classList.toggle("hidden", !drawOpen);
+  document.querySelector("#chat-draw-btn")?.classList.toggle("on", drawOpen);
+}
+
 async function removeMsg(id) {
   try { await deleteDoc(doc(api.db, "chat", id)); }
   catch (e) { alert(e.message); }
@@ -81,7 +128,7 @@ function msgHtml(m) {
         <span class="chat-time">${timeOf(m.at)}</span>
         ${canDelete ? `<button class="chat-del" data-del="${m.id}" title="Delete">✕</button>` : ""}
       </div>
-      <div class="chat-text">${esc(m.text)}</div>
+      ${m.img && IMG_RE.test(m.img) ? `<img class="chat-img" src="${m.img}" alt="doodle">` : `<div class="chat-text">${esc(m.text)}</div>`}
     </div>
   </div>`;
 }
@@ -110,7 +157,20 @@ export function renderChat() {
         <span class="muted" style="font-size:12px"><span id="chat-online">${api.onlineCount()}</span> on the floor</span>
       </div>
       <div id="chat-log" class="chat-log"></div>
+      <div id="chat-draw-panel" class="chat-draw hidden">
+        <canvas id="chat-canvas" width="${PIX}" height="${PIX}"></canvas>
+        <div class="chat-draw-side">
+          <div class="chat-palette">
+            ${PALETTE.map((c) => `<button class="chat-swatch ${c === drawColor ? "on" : ""}" data-col="${c}" style="background:${c}"></button>`).join("")}
+          </div>
+          <div class="chat-draw-actions">
+            <button class="ghost" id="chat-clear">Clear</button>
+            <button class="btn-spin" id="chat-upload">Upload to chat</button>
+          </div>
+        </div>
+      </div>
       <div class="chat-input-row">
+        <button class="ghost" id="chat-draw-btn" title="Draw a doodle">🎨</button>
         <input id="chat-input" type="text" maxlength="${MAX_LEN}" placeholder="Say something…" autocomplete="off">
         <button class="btn-spin" id="chat-send">Send</button>
       </div>`;
@@ -118,6 +178,18 @@ export function renderChat() {
     el.querySelector("#chat-input").addEventListener("keydown", (e) => {
       if (e.key === "Enter") send();
     });
+    el.querySelector("#chat-draw-btn").addEventListener("click", () => toggleDraw());
+    el.querySelector("#chat-clear").addEventListener("click", clearCanvas);
+    el.querySelector("#chat-upload").addEventListener("click", sendDoodle);
+    el.querySelectorAll(".chat-swatch").forEach((b) =>
+      b.addEventListener("click", () => {
+        drawColor = b.dataset.col;
+        el.querySelectorAll(".chat-swatch").forEach((x) => x.classList.toggle("on", x === b));
+      }));
+    const cv = el.querySelector("#chat-canvas");
+    clearCanvas();
+    cv.addEventListener("pointerdown", (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); paintAt(cv, e); });
+    cv.addEventListener("pointermove", (e) => { if (e.buttons & 1) paintAt(cv, e); });
   }
   updateLog();
   api.dotEl()?.classList.add("hidden");

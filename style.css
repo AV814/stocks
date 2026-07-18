@@ -751,3 +751,33 @@ header {
 @media (max-width: 640px) {
   .pp-cell { width: 40px; height: 40px; }
 }
+
+/* ---------- chat doodles ---------- */
+.chat-draw {
+  display: flex; gap: 12px; margin-top: 10px; padding: 12px;
+  background: var(--panel); border: 2px solid;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  flex-wrap: wrap;
+}
+#chat-canvas {
+  width: 250px; height: 250px;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  background: #fff; cursor: crosshair; touch-action: none;
+  border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+.chat-draw-side { display: flex; flex-direction: column; gap: 10px; justify-content: space-between; }
+.chat-palette { display: grid; grid-template-columns: repeat(4, 30px); gap: 5px; }
+.chat-swatch {
+  width: 30px; height: 30px; padding: 0 !important;
+}
+.chat-swatch.on { outline: 2px solid var(--amber); outline-offset: 1px; }
+.chat-draw-actions { display: flex; flex-direction: column; gap: 6px; }
+.chat-img {
+  width: 150px; height: 150px; margin-top: 3px;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+  border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+  background: #fff;
+}
+#chat-draw-btn.on { background: var(--select) !important; color: #fff; }

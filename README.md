@@ -92,7 +92,7 @@ Hovering a name on the leaderboard (tap on mobile) opens a stat card: their curr
 
 ## Trading floor chat
 
-The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. Enforced in the rules: authors can only post as themselves, text only, 500-character cap.
+The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. The 🎨 button opens a doodle pad: a 50x50 pixel canvas with a 12-color palette — draw and upload straight into the chat as a crisp pixel-art card. Enforced in the rules: authors post as themselves, messages are text (500-char cap) or a small PNG doodle (12KB cap).
 
 
 ## Work (guaranteed wages)
@@ -101,7 +101,7 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 - **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
 - **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
-- **Pipes** — a BioShock-style hack: drag tiles onto each other to swap them (or tap-tap on mobile) and route the flow from inlet to outlet — no rotation, just like the original. Every board is dealt solvable: a hidden solution path is generated first and its pieces shuffled across the grid for you to find. Fluid starts after an 8-second grace, advances every 1.5s, locks pipes it fills, and bursts on any unconnected pipe. ₡60 + speed bonus up to ₡30.
+- **Pipes** — a BioShock-style hack: drag tiles onto each other to swap them (or tap-tap on mobile) and route the flow from inlet to outlet — no rotation, just like the original, and no four-way pieces. Every board is dealt solvable: a hidden solution path is generated first and its pieces shuffled across the grid for you to find. Fluid starts after an 8-second grace, advances every 1.5s, locks pipes it fills, and bursts on any unconnected pipe. ₡60 + speed bonus up to ₡30.
 - **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
 
 Work plays are counted in the same global and per-player stat counters as casino games.

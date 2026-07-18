@@ -663,3 +663,62 @@ header {
 .chat-text { font-size: 13px; word-wrap: break-word; white-space: pre-wrap; }
 .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
 .chat-input-row input { flex: 1; padding: 10px 12px; }
+
+/* ---------- Work: minesweeper ---------- */
+.work-cap { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); margin-bottom: 10px; }
+.ms-bar { display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+.ms-bar .ghost.on { background: var(--select) !important; color: #fff !important; }
+.ms-grid {
+  display: grid; grid-template-columns: repeat(9, 34px); gap: 2px;
+  justify-content: center; user-select: none;
+}
+.ms-cell {
+  width: 34px; height: 34px; padding: 0 !important;
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+}
+.ms-cell.open {
+  background: #333a2e !important;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important;
+}
+
+/* ---------- Work: snake ---------- */
+.sn-canvas {
+  display: block; margin: 0 auto;
+  border: 2px solid; border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+.sn-pad { margin-top: 10px; display: none; text-align: center; }
+.sn-pad button { width: 52px; height: 40px; font-size: 16px; margin: 2px; }
+@media (pointer: coarse) { .sn-pad { display: block; } }
+
+/* ---------- Work: hacking terminal ---------- */
+.hk-panel { background: #050805 !important; border-color: #1a2a1a #000 #000 #1a2a1a !important; }
+.hk-panel .work-cap { color: #3f7a3f; }
+.hk-term {
+  font-family: var(--mono); color: #33ff66; text-align: left;
+  text-shadow: 0 0 6px rgba(51,255,102,0.45);
+  font-size: 12px; line-height: 1.5;
+}
+.hk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hk-dump { overflow: hidden; }
+.hk-line { white-space: nowrap; overflow: hidden; }
+.hk-addr { color: #1f9944; margin-right: 6px; }
+.hk-word {
+  border: none !important; background: none !important; box-shadow: none !important;
+  color: #33ff66; font-family: var(--mono); font-size: 12px; font-weight: 700;
+  padding: 0 2px !important; cursor: pointer; text-shadow: inherit;
+}
+.hk-word:hover { background: #33ff66 !important; color: #050805 !important; }
+.hk-log { height: 260px; overflow-y: auto; }
+.hk-input-line { display: flex; align-items: center; }
+#hk-input {
+  background: none !important; border: none !important; outline: none !important;
+  color: #33ff66 !important; font-family: var(--mono); font-size: 12px;
+  width: 120px; padding: 0 !important; text-transform: uppercase; text-shadow: inherit;
+}
+.hk-cursor { animation: hk-blink 1s steps(1) infinite; }
+@keyframes hk-blink { 50% { opacity: 0; } }
+@media (max-width: 640px) {
+  .hk-cols { grid-template-columns: 1fr; }
+  .ms-grid { grid-template-columns: repeat(9, 32px); }
+  .ms-cell { width: 32px; height: 32px; }
+}

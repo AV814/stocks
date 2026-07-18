@@ -94,6 +94,17 @@ Hovering a name on the leaderboard (tap on mobile) opens a stat card: their curr
 
 The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. Enforced in the rules: authors can only post as themselves, text only, 500-character cap.
 
+
+## Work (guaranteed wages)
+
+The Work tab is the counterweight to the casino: three skill games that pay honest wages with no house edge, each capped at ₡200/day (resets midnight ET, tracked on your user doc).
+
+- **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
+- **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
+- **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
+
+Work plays are counted in the same global and per-player stat counters as casino games.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

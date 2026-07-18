@@ -18,6 +18,7 @@ import { initPredictions } from "./predictions.js";
 import { initSocial } from "./social.js";
 import { initLottery } from "./lottery.js";
 import { initChat } from "./chat.js";
+import { initWork } from "./work.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -117,6 +118,12 @@ const chat = initChat({
   dotEl: () => $("#chat-dot"),
   el: () => $("#view-chat"),
   onlineCount: () => allUsers.filter((u) => isOnline(u)).length
+});
+const work = initWork({
+  db, fmt, toast,
+  me: () => me,
+  myDoc: () => myDoc,
+  el: () => $("#view-work")
 });
 
 /* ================= AUTH ================= */
@@ -343,7 +350,7 @@ document.querySelectorAll(".tab").forEach((b) =>
 );
 
 function showView(id) {
-  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "admin"].forEach((v) =>
+  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "work", "admin"].forEach((v) =>
     $(`#view-${v}`).classList.toggle("hidden", v !== id)
   );
 }
@@ -376,6 +383,7 @@ function render() {
   else if (view === "casino") casino.render();
   else if (view === "predict") predictions.renderPredictions();
   else if (view === "chat") chat.renderChat();
+  else if (view === "work") work.renderWork();
   else if (view === "admin") predictions.renderAdmin();
 }
 
@@ -693,7 +701,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

@@ -781,3 +781,32 @@ header {
   background: #fff;
 }
 #chat-draw-btn.on { background: var(--select) !important; color: #fff; }
+
+/* ---------- poker ---------- */
+.pk-card { cursor: pointer; position: relative; transition: transform 0.1s; }
+.pk-card[data-pk]:hover { transform: translateY(-4px); }
+.pk-card.disc { opacity: 0.4; outline: 2px solid var(--down); outline-offset: 1px; }
+
+/* ---------- intrusion (typing hack) ---------- */
+.in-term { text-align: center; }
+.in-hud {
+  display: flex; justify-content: space-between; font-size: 12px;
+  border-bottom: 1px solid #1f9944; padding-bottom: 6px; margin-bottom: 12px;
+}
+.in-hud b { color: #7fffa8; }
+.in-timer { height: 8px; background: #0c1a0c; border: 1px solid #1f9944; margin-bottom: 16px; }
+.in-bar { height: 100%; width: 100%; background: #33ff66; box-shadow: 0 0 8px #33ff66; }
+.in-target {
+  font-size: 26px; letter-spacing: 2px; margin-bottom: 8px; min-height: 34px;
+}
+.in-target span { color: #2a6e3a; }
+.in-target span.hit { color: #7fffa8; text-shadow: 0 0 8px #33ff66; }
+.in-hint { font-size: 11px; color: #2a6e3a; margin-bottom: 12px; }
+.in-input {
+  background: #0c1a0c !important; border: 1px solid #1f9944 !important;
+  color: #33ff66 !important; font-family: var(--mono); font-size: 15px;
+  text-align: center; width: 260px; max-width: 90%; padding: 8px !important;
+  outline: none !important; text-shadow: inherit;
+}
+.in-idle, .in-over { font-size: 13px; line-height: 1.7; }
+.in-over { color: #7fffa8; }

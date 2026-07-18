@@ -403,7 +403,7 @@ let kenoBet = 10;
    leaderboard hover card. */
 let gameStats = {};          // { slots, blackjack, roulette, scratch, keno, lotto }
 let statsSub = null;
-const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets" };
+const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets", poker: "hands" };
 function watchCasinoStats() {
   if (statsSub || !api.db) return;
   statsSub = onSnapshot(doc(api.db, "market", "casinoStats"),
@@ -496,6 +496,136 @@ setInterval(() => {
   if (cd) cd.textContent = kenoCountdown();
 }, 1000);
 
+
+/* ================= FIVE-CARD DRAW POKER =================
+   Heads-up against the house, single 52-card deck. Bet, get 5
+   cards, optionally double down while you can still see only
+   your own hand, discard any cards for replacements, then the
+   dealer (who plays a sound drawing strategy) shows down.
+   Winner takes even money on the total stake. The house edge:
+   THE HOUSE WINS TIES. */
+
+let pk = { phase: "idle", deck: [], hand: [], dealer: [], bet: 0, doubled: false, discard: new Set(), msg: "", result: null };
+
+function pkDeck() {
+  const suits = ["♠", "♥", "♦", "♣"];
+  const deck = [];
+  for (const s of suits) for (let r = 2; r <= 14; r++) deck.push({ r, s });
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+const RNAME = { 11: "J", 12: "Q", 13: "K", 14: "A" };
+const rName = (r) => RNAME[r] || String(r);
+const RWORD = { 2:"Twos",3:"Threes",4:"Fours",5:"Fives",6:"Sixes",7:"Sevens",8:"Eights",9:"Nines",10:"Tens",11:"Jacks",12:"Queens",13:"Kings",14:"Aces" };
+
+// score: [category, tiebreakers...] — compare lexicographically
+function pkScore(hand) {
+  const rs = hand.map((c) => c.r).sort((a, b) => b - a);
+  const flush = hand.every((c) => c.s === hand[0].s);
+  let straightHigh = 0;
+  const uniq = [...new Set(rs)];
+  if (uniq.length === 5) {
+    if (uniq[0] - uniq[4] === 4) straightHigh = uniq[0];
+    else if (uniq[0] === 14 && uniq[1] === 5 && uniq[4] === 2) straightHigh = 5;  // wheel
+  }
+  const counts = {};
+  rs.forEach((r) => counts[r] = (counts[r] || 0) + 1);
+  const groups = Object.entries(counts)
+    .map(([r, n]) => ({ r: Number(r), n }))
+    .sort((a, b) => b.n - a.n || b.r - a.r);
+  const kick = groups.flatMap((g) => Array(g.n).fill(g.r));
+  if (straightHigh && flush) return { s: [8, straightHigh], name: straightHigh === 14 ? "Royal Flush" : "Straight Flush" };
+  if (groups[0].n === 4) return { s: [7, groups[0].r, groups[1].r], name: `Four ${RWORD[groups[0].r]}` };
+  if (groups[0].n === 3 && groups[1].n === 2) return { s: [6, groups[0].r, groups[1].r], name: `Full House, ${RWORD[groups[0].r]} over ${RWORD[groups[1].r]}` };
+  if (flush) return { s: [5, ...rs], name: "Flush" };
+  if (straightHigh) return { s: [4, straightHigh], name: "Straight" };
+  if (groups[0].n === 3) return { s: [3, ...kick], name: `Three ${RWORD[groups[0].r]}` };
+  if (groups[0].n === 2 && groups[1].n === 2) return { s: [2, ...kick], name: `Two Pair, ${RWORD[groups[0].r]} and ${RWORD[groups[1].r]}` };
+  if (groups[0].n === 2) return { s: [1, ...kick], name: `Pair of ${RWORD[groups[0].r]}` };
+  return { s: [0, ...rs], name: `${rName(rs[0])} High` };
+}
+function pkCmp(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] || 0) - (b[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+// dealer drawing strategy: sensible video-poker holds
+function pkDealerPlay() {
+  const h = pk.dealer;
+  const sc = pkScore(h);
+  let keep;
+  if (sc.s[0] >= 4) keep = new Set([0, 1, 2, 3, 4]);                       // straight or better stands
+  else if (sc.s[0] === 3) {                                               // trips: draw 2
+    const r = sc.s[1];
+    keep = new Set(h.map((c, i) => c.r === r ? i : -1).filter((i) => i >= 0));
+  } else if (sc.s[0] === 2) {                                             // two pair: draw 1
+    keep = new Set();
+    const pr = [sc.s[1], sc.s[2]];
+    h.forEach((c, i) => { if (pr.includes(c.r)) keep.add(i); });
+  } else if (sc.s[0] === 1) {                                             // pair: draw 3
+    const r = sc.s[1];
+    keep = new Set(h.map((c, i) => c.r === r ? i : -1).filter((i) => i >= 0));
+  } else {
+    // 4 to a flush?
+    const bySuit = {};
+    h.forEach((c, i) => (bySuit[c.s] = bySuit[c.s] || []).push(i));
+    const fl = Object.values(bySuit).find((a) => a.length === 4);
+    if (fl) keep = new Set(fl);
+    else {
+      // keep face cards (up to 3 highest)
+      keep = new Set(h.map((c, i) => ({ c, i })).filter((x) => x.c.r >= 11)
+        .sort((a, b) => b.c.r - a.c.r).slice(0, 3).map((x) => x.i));
+    }
+  }
+  pk.dealer = h.map((c, i) => keep.has(i) ? c : pk.deck.pop());
+}
+
+async function pkDeal() {
+  if (pk.phase === "dealt") return;
+  const bet = Math.floor(Number(document.querySelector("#pk-bet")?.value || 25));
+  if (!(bet > 0)) return;
+  try { await api.settle(-bet, bet); }
+  catch (e) { alert(e.message); return; }
+  bumpStat("poker");
+  pk = { phase: "dealt", deck: pkDeck(), hand: [], dealer: [], bet, doubled: false, discard: new Set(), msg: "", result: null };
+  for (let i = 0; i < 5; i++) { pk.hand.push(pk.deck.pop()); pk.dealer.push(pk.deck.pop()); }
+  renderCasino();
+}
+async function pkDouble() {
+  if (pk.phase !== "dealt" || pk.doubled) return;
+  try { await api.settle(-pk.bet, pk.bet); }
+  catch (e) { alert(e.message); return; }
+  pk.doubled = true;
+  renderCasino();
+}
+async function pkDraw() {
+  if (pk.phase !== "dealt") return;
+  pk.hand = pk.hand.map((c, i) => pk.discard.has(i) ? pk.deck.pop() : c);
+  pkDealerPlay();
+  const mine = pkScore(pk.hand), house = pkScore(pk.dealer);
+  const stake = pk.doubled ? pk.bet * 2 : pk.bet;
+  const cmp = pkCmp(mine.s, house.s);
+  pk.result = { mine, house };
+  if (cmp > 0) {
+    pk.msg = `${mine.name} beats ${house.name} — you win ${api.fmt(stake * 2)}.`;
+    try { await api.settle(stake * 2, 0); }
+    catch (e) { pk.msg += " (Payout failed — refresh and check your cash.)"; }
+    if (mine.s[0] >= 5) api.toast("POKER", `${mine.name}! ${api.fmt(stake * 2)}`);
+  } else if (cmp === 0) {
+    pk.msg = `Both show ${mine.name}. Ties go to the house. That's the edge.`;
+  } else {
+    pk.msg = `${house.name} beats your ${mine.name}. The house rakes ${api.fmt(stake)}.`;
+  }
+  pk.phase = "done";
+  renderCasino();
+}
+
 /* ================= RENDER ================= */
 function cardHtml(c, hidden) {
   if (hidden) return `<span class="bj-card back">🂠</span>`;
@@ -587,6 +717,40 @@ function renderCasino() {
 
   const lottoHtml = `${statLine("lotto")}<div id="lotto-root"></div>`;
 
+  const pkLive = pk.phase === "dealt";
+  const pokerCard = (c, i, mineRow) => {
+    const red = c.s === "♥" || c.s === "♦";
+    const disc = mineRow && pk.discard.has(i);
+    return `<button class="bj-card pk-card ${red ? "red" : ""} ${disc ? "disc" : ""}" ${mineRow && pkLive ? `data-pk="${i}"` : ""}>${rName(c.r)}${c.s}</button>`;
+  };
+  const pokerHtml = `
+    <div class="casino-panel">
+      ${statLine("poker")}
+      <div class="bj-table">
+        <div class="bj-row">
+          <span class="bj-label">House${pk.result ? " · " + pk.result.house.name : ""}</span>
+          <div>${pk.phase === "done" ? pk.dealer.map((c) => pokerCard(c, 0, false)).join("") :
+                 pkLive ? '<span class="bj-card back">🂠</span>'.repeat(5) : ""}</div>
+        </div>
+        <div class="bj-row">
+          <span class="bj-label">You${pk.result ? " · " + pk.result.mine.name : ""}${pk.doubled ? " (doubled)" : ""}</span>
+          <div>${pk.hand.map((c, i) => pokerCard(c, i, true)).join("")}</div>
+        </div>
+      </div>
+      <div class="casino-controls">
+        ${pkLive ? `
+          ${!pk.doubled ? `<button class="btn-bj ghost-bj" id="pk-double" ${api.getCash() < pk.bet ? "disabled" : ""}>Double down</button>` : ""}
+          <button class="btn-spin" id="pk-draw">${pk.discard.size ? `Swap ${pk.discard.size} & showdown` : "Stand pat & showdown"}</button>
+        ` : `
+          <input id="pk-bet" type="number" min="1" step="1" value="${pk.bet || 25}">
+          <button class="btn-spin" id="pk-deal">Deal</button>
+        `}
+      </div>
+      <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") : ""}">${
+        pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the swap. Double down while the house is still face-down.` :
+        pk.msg || "Five-card draw against the house. Even money, one swap, and ties go to the house."}</div>
+    </div>`;
+
   const numCell = (n) => {
     const amt = roul.bets[`n${n}`];
     const col = n === 0 ? "green" : ROUL_REDS.has(n) ? "red" : "black";
@@ -661,10 +825,11 @@ function renderCasino() {
         <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
         <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratch Tickets</button>
         <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">Keno</button>
+        <button data-cmode="poker" class="${mode === "poker" ? "active" : ""}">Poker</button>
         <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">Powerball</button>
       </div>
     </div>
-    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : lottoHtml}
+    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : mode === "poker" ? pokerHtml : lottoHtml}
   `;
 
   el.querySelectorAll("[data-cmode]").forEach((b) =>
@@ -694,6 +859,14 @@ function renderCasino() {
     else if (kenoPicks.length < 10) kenoPicks.push(n);
     renderCasino();
   }));
+  el.querySelectorAll("[data-pk]").forEach((c) => c.addEventListener("click", () => {
+    const i = Number(c.dataset.pk);
+    pk.discard.has(i) ? pk.discard.delete(i) : pk.discard.add(i);
+    renderCasino();
+  }));
+  el.querySelector("#pk-deal")?.addEventListener("click", pkDeal);
+  el.querySelector("#pk-double")?.addEventListener("click", pkDouble);
+  el.querySelector("#pk-draw")?.addEventListener("click", pkDraw);
   el.querySelector("#keno-buy")?.addEventListener("click", kenoBuy);
   el.querySelector("#keno-clear")?.addEventListener("click", () => { kenoPicks = []; renderCasino(); });
   el.querySelector("#keno-qp")?.addEventListener("click", () => {

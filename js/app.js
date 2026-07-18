@@ -702,7 +702,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

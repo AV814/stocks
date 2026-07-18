@@ -68,6 +68,9 @@ The Admin tab includes a Treasury panel listing every player with their cash bal
 
 ## More Vapor Lounge games & governance
 
+**Five-Card Draw Poker** (casino) — heads-up against the house. Bet, receive five cards, optionally double down while the dealer is still face-down, mark any cards to discard, then draw and show down. The dealer draws on a sensible strategy. Even money on the total stake; the house edge is that ties go to the house.
+
+
 **Roulette** — European single-zero wheel. Stack chips of any size across straight numbers (35:1), dozens (2:1), and even-money outside bets; zero sweeps the outside. ~2.7% house edge, the gentlest table in the Lounge.
 
 **Keno** — a shared draw every 3 minutes: 20 of 80 numbers derived deterministically from the round index, so every client sees the identical draw at the same moment. Pick up to 10 numbers, bet, and your ticket plays the next draw (top prize 25,000x on a perfect 10). Tickets persist locally and settle on your next visit if you close the tab.
@@ -101,6 +104,7 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 - **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
 - **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
+- **Intrusion** — a typing breach: command strings appear and you must type each one exactly before a draining timer empties. Each cleared command banks credits and refunds a little time; one wrong key or a timeout ends the run, and the pace ramps with your streak. Green-terminal styling like Hack, but a reflex/typing job.
 - **Pipes** — a BioShock-style hack: drag tiles onto each other to swap them (or tap-tap on mobile) and route the flow from inlet to outlet — no rotation, just like the original, and no four-way pieces. Every board is dealt solvable: a hidden solution path is generated first and its pieces shuffled across the grid for you to find. Fluid starts after an 8-second grace, advances every 1.5s, locks pipes it fills, and bursts on any unconnected pipe. ₡60 + speed bonus up to ₡30.
 - **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
 

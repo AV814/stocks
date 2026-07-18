@@ -528,6 +528,111 @@ function ppHtml() {
       "Drag a tile onto another to swap them (or tap one, then the other). A pipe's arms show exactly where fluid can enter and leave. Route ▶ to ▶ — every piece you need is on the board somewhere. Filled pipes lock."}</div>`;
 }
 
+
+/* ================= INTRUSION =================
+   A different terminal hack: a countdown breach. Command strings
+   scroll in and you must type each one exactly before the timer
+   drains. Each cleared command banks a little money and adds a
+   sliver of time; a wrong char or a timeout ends the run. The
+   longer your streak, the faster they come. Green-on-black like
+   the password cracker, but it's a reflex/typing job. */
+
+const INTRUSION_CMDS = ("sudo override","decrypt node","bypass ice","route packet","spoof mac",
+  "flush cache","inject payload","trace uplink","mount daemon","purge logs","crack hash","open socket",
+  "kill firewall","ping subnet","dump kernel","forge token","tunnel vpn","scan ports","patch exploit",
+  "sever trace","cloak signal","breach vault","reroute grid","disable alarm","exfil data","ghost proxy",
+  "unlock sector","drain buffer","hijack thread","null route").split(",");
+
+let intr = null;  // { active, target, typed, score, streak, deadline, dur, iv, over }
+
+function inNew() {
+  inStop();
+  intr = { active: false, over: false, target: "", typed: "", score: 0, streak: 0, deadline: 0, dur: 4200, iv: null };
+  renderWork();
+}
+function inStop() { if (intr?.iv) { clearInterval(intr.iv); intr.iv = null; } }
+function inNext() {
+  intr.target = INTRUSION_CMDS[Math.floor(Math.random() * INTRUSION_CMDS.length)];
+  intr.typed = "";
+  intr.dur = Math.max(1800, 4200 - intr.streak * 120);   // ramps up
+  intr.deadline = Date.now() + intr.dur;
+}
+function inStart() {
+  inStop();
+  intr = { active: true, over: false, target: "", typed: "", score: 0, streak: 0, dur: 4200, iv: null };
+  inNext();
+  intr.iv = setInterval(() => {
+    if (!intr.active) return;
+    if (Date.now() > intr.deadline) return inFail("TIMEOUT");
+    const bar = document.querySelector("#in-bar");
+    if (bar) bar.style.width = Math.max(0, (intr.deadline - Date.now()) / intr.dur * 100) + "%";
+  }, 60);
+  renderWork();
+}
+function inFail(why) {
+  inStop();
+  intr.active = false;
+  intr.over = true;
+  intr.failWhy = why;
+  if (intr.score > 0) payWork("intrusion", intr.score, `a ${intr.streak}-command breach`);
+  else renderWork();
+}
+function inType(ch) {
+  if (!intr || !intr.active) return;
+  const next = intr.typed + ch;
+  if (intr.target.startsWith(next)) {
+    intr.typed = next;
+    if (next === intr.target) {
+      intr.streak++;
+      intr.score += 3 + Math.floor(intr.streak / 3);        // escalating reward
+      intr.deadline += 700;                                  // small time refund
+      inNext();
+    }
+    inPaint();
+  } else {
+    inFail("SYNTAX ERROR");
+  }
+}
+function inBack() {
+  if (intr?.active && intr.typed) { intr.typed = intr.typed.slice(0, -1); inPaint(); }
+}
+function inPaint() {
+  const t = document.querySelector("#in-target");
+  if (t) t.innerHTML = intr.target.split("").map((c, i) =>
+    `<span class="${i < intr.typed.length ? "hit" : ""}">${c === " " ? "&nbsp;" : esc(c)}</span>`).join("");
+  const sc = document.querySelector("#in-score");
+  if (sc) sc.textContent = api.fmt(intr.score);
+  const st = document.querySelector("#in-streak");
+  if (st) st.textContent = intr.streak;
+}
+function inHtml() {
+  if (!intr) inNew();
+  return `
+    ${capLine("intrusion")}
+    <div class="hk-term in-term">
+      <div class="in-hud">
+        <span>BANKED: <b id="in-score">${api.fmt(intr.score)}</b></span>
+        <span>STREAK: <b id="in-streak">${intr.streak}</b></span>
+      </div>
+      ${intr.active ? `
+        <div class="in-timer"><div id="in-bar" class="in-bar"></div></div>
+        <div class="in-target" id="in-target">${intr.target.split("").map((c) => `<span>${c === " " ? "&nbsp;" : esc(c)}</span>`).join("")}</div>
+        <div class="in-hint">type it exactly — one wrong key trips the alarm</div>
+        <input id="in-input" autocomplete="off" spellcheck="false" autocapitalize="off" class="in-input" placeholder="type here">
+      ` : intr.over ? `
+        <div class="in-over">>>> ${intr.failWhy} — INTRUSION HALTED</div>
+        <div class="in-over">>>> ${intr.streak} COMMANDS CLEARED · ${api.fmt(intr.score)} BANKED</div>
+      ` : `
+        <div class="in-idle">>>> VAPOR INDUSTRIES INTRUSION SUITE</div>
+        <div class="in-idle">>>> TYPE EACH COMMAND BEFORE THE BAR EMPTIES</div>
+        <div class="in-idle">>>> WRONG KEY = ALARM. SPEED RAMPS WITH YOUR STREAK.</div>
+      `}
+    </div>
+    <div class="casino-controls" style="margin-top:12px">
+      <button class="btn-spin" id="in-start">${intr.active ? "Restart" : intr.over ? "Run again" : "Begin breach"}</button>
+    </div>`;
+}
+
 /* ================= RENDER ================= */
 export function renderWork() {
   const el = api.el();
@@ -540,10 +645,11 @@ export function renderWork() {
         <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">🐍 Snake</button>
         <button data-wmode="hack" class="${mode === "hack" ? "active" : ""}">💻 Hack</button>
         <button data-wmode="pipes" class="${mode === "pipes" ? "active" : ""}">🔧 Pipes</button>
+        <button data-wmode="intrusion" class="${mode === "intrusion" ? "active" : ""}">⌨️ Intrusion</button>
       </div>
     </div>
-    <div class="casino-panel ${mode === "hack" ? "hk-panel" : ""}">
-      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : mode === "hack" ? hkHtml() : ppHtml()}
+    <div class="casino-panel ${mode === "hack" || mode === "intrusion" ? "hk-panel" : ""}">
+      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : mode === "hack" ? hkHtml() : mode === "pipes" ? ppHtml() : inHtml()}
     </div>
     <p class="muted" style="font-size:12px;margin-top:12px">Honest wages, no house edge. Each job caps at ${api.fmt(DAY_CAP)} a day, resets midnight ET.</p>`;
 
@@ -551,6 +657,7 @@ export function renderWork() {
     b.addEventListener("click", () => {
       if (mode === "snake" && b.dataset.wmode !== "snake") snStop();
       if (mode === "pipes" && b.dataset.wmode !== "pipes" && pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
+      if (mode === "intrusion" && b.dataset.wmode !== "intrusion") inStop();
       mode = b.dataset.wmode;
       renderWork();
     }));
@@ -608,6 +715,18 @@ export function renderWork() {
   });
   el.querySelector("#pp-new")?.addEventListener("click", ppNew);
 
+  // intrusion
+  el.querySelector("#in-start")?.addEventListener("click", inStart);
+  const inIn = el.querySelector("#in-input");
+  if (inIn) {
+    inIn.focus();
+    inIn.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace") { e.preventDefault(); inBack(); return; }
+      if (e.key.length === 1) { e.preventDefault(); inType(e.key.toLowerCase()); }
+    });
+    inIn.addEventListener("blur", () => { if (intr?.active) setTimeout(() => inIn.focus(), 0); });
+  }
+
   const hkLog = el.querySelector("#hk-log");
   if (hkLog) hkLog.scrollTop = hkLog.scrollHeight;
 }
@@ -616,6 +735,7 @@ export function initWork(apiIn) {
   api = apiIn;
   return { renderWork, stop: () => {
     snStop();
+    inStop();
     if (pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
   } };
 }

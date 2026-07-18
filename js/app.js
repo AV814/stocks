@@ -46,7 +46,7 @@ const pct = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 
 /* ---- shared cash mover for casino: one transaction on my own doc.
    delta may be negative; minStake is the cash needed up front. ---- */
-const BONUS_AMT = 50;
+const BONUS_AMT = 100;
 const bonusDay = () => Math.floor((Date.now() - 5 * 3600000) / 86400000); // midnight ET boundary
 async function claimDaily() {
   if (!me || !myDoc) return;
@@ -356,7 +356,7 @@ function renderCash() {
   const bb = $("#bonus-btn");
   bb.disabled = claimed;
   bb.title = claimed ? "Daily bonus claimed — resets midnight ET" : "Claim your free ₡50 daily bonus";
-  bb.textContent = claimed ? "🎁 ✓" : "🎁 ₡50";
+  bb.textContent = claimed ? "✓" : "₡100";
 }
 $("#avatar-btn").addEventListener("click", () => $("#avatar-file").click());
 $("#avatar-file").addEventListener("change", (e) => {

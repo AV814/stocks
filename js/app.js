@@ -384,6 +384,7 @@ function render() {
   else if (view === "predict") predictions.renderPredictions();
   else if (view === "chat") chat.renderChat();
   else if (view === "work") work.renderWork();
+  if (view !== "work") work.stop();   // pause snake instead of letting it die offscreen
   else if (view === "admin") predictions.renderAdmin();
 }
 
@@ -701,7 +702,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

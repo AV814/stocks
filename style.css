@@ -722,3 +722,26 @@ header {
   .ms-grid { grid-template-columns: repeat(9, 32px); }
   .ms-cell { width: 32px; height: 32px; }
 }
+
+/* ---------- Work: pipes ---------- */
+.pp-grid { display: inline-block; margin: 0 auto; }
+.pp-row { display: flex; justify-content: center; }
+.pp-edge {
+  width: 26px; display: flex; align-items: center; justify-content: center;
+  color: var(--amber); font-size: 16px;
+}
+.pp-cell {
+  width: 46px; height: 46px; padding: 0 !important;
+  font-family: var(--mono); font-size: 26px; line-height: 1;
+  color: var(--paper-dim);
+}
+.pp-cell.filled {
+  color: var(--amber) !important;
+  background: #333a2e !important;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark) !important;
+  text-shadow: 0 0 6px rgba(196,181,80,0.5);
+}
+.pp-cell.blocked { color: #555c50; cursor: not-allowed; }
+@media (max-width: 640px) {
+  .pp-cell { width: 38px; height: 38px; font-size: 21px; }
+}

@@ -150,12 +150,16 @@ const SN = 15, SNAKE_CELL = 22;
 let snake = null;  // { body, dir, nextDir, food, score, dead, iv }
 function snStart() {
   snStop();
-  snake = { body: [112, 111, 110], dir: 1, nextDir: 1, food: null, score: 0, dead: false, iv: null };
+  snake = { body: [112, 111, 110], dir: 1, queue: [], food: null, score: 0, dead: false, iv: null };
   snFood();
-  snake.iv = setInterval(snTick, 140);
+  snake.iv = setInterval(snTick, snSpeed());
   renderWork();
 }
+function snSpeed() { return Math.max(70, 140 - (snake?.score || 0) * 4); }
 function snStop() { if (snake?.iv) { clearInterval(snake.iv); snake.iv = null; } }
+function snResume() {
+  if (snake && !snake.dead && !snake.iv) snake.iv = setInterval(snTick, snSpeed());
+}
 function snFood() {
   let f;
   do { f = Math.floor(Math.random() * SN * SN); } while (snake.body.includes(f));
@@ -163,11 +167,13 @@ function snFood() {
 }
 function snTurn(d) {  // 0 up, 1 right, 2 down, 3 left
   if (!snake || snake.dead) return;
-  if ((d + 2) % 4 !== snake.dir) snake.nextDir = d;
+  // queue up to 3 turns; each must not reverse the one before it
+  const last = snake.queue.length ? snake.queue[snake.queue.length - 1] : snake.dir;
+  if (d !== last && (d + 2) % 4 !== last && snake.queue.length < 3) snake.queue.push(d);
 }
 function snTick() {
   if (!snake || snake.dead) return;
-  snake.dir = snake.nextDir;
+  if (snake.queue.length) snake.dir = snake.queue.shift();
   const head = snake.body[0];
   const x = head % SN, y = Math.floor(head / SN);
   let nx = x, ny = y;
@@ -188,7 +194,7 @@ function snTick() {
     snFood();
     if (snake.score % 5 === 0 && snake.iv) {
       clearInterval(snake.iv);
-      snake.iv = setInterval(snTick, Math.max(70, 140 - snake.score * 4));
+      snake.iv = setInterval(snTick, snSpeed());
     }
   } else snake.body.pop();
   snDraw();
@@ -306,6 +312,146 @@ function hkHtml() {
     ${hack.done ? `<div class="casino-controls"><button class="btn-spin" id="hk-new">Reboot terminal</button></div>` : ""}`;
 }
 
+
+/* ================= PIPES =================
+   BioShock-style hack: fluid starts flowing from the inlet after
+   a grace period and advances one tile at a time. Click tiles to
+   rotate them and route the flow to the outlet before it bursts
+   out of an unconnected pipe. Filled tiles are locked.
+   Directions as bitmask: U=1 R=2 D=4 L=8. */
+
+const PIPE_W = 7, PIPE_H = 5;
+const PIPE_GRACE = 6000, PIPE_FLOW = 1500;
+const PIPE_CHAR = { 5: "║", 10: "═", 3: "╚", 6: "╔", 12: "╗", 9: "╝", 15: "╬" };
+const rotMask = (m) => ((m << 1) & 15) | (m >> 3);
+const oppDir = (d) => ((d << 2) | (d >> 2)) & 15;
+let pipes = null;  // { grid, blocked:Set, filled:Set, inRow, outRow, fluidAt, fluidIn, t0, timer, phase }
+
+function ppNew() {
+  ppStop();
+  const grid = [];
+  const blocked = new Set();
+  for (let i = 0; i < PIPE_W * PIPE_H; i++) {
+    const r = Math.random();
+    let m;
+    if (r < 0.40) m = [3, 6, 12, 9][Math.floor(Math.random() * 4)];
+    else if (r < 0.78) m = Math.random() < 0.5 ? 5 : 10;
+    else if (r < 0.90) m = 15;
+    else { m = 0; blocked.add(i); }
+    grid.push(m);
+  }
+  const inRow = Math.floor(Math.random() * PIPE_H);
+  const outRow = Math.floor(Math.random() * PIPE_H);
+  blocked.delete(inRow * PIPE_W);                       // inlet + outlet cells stay usable
+  if (grid[inRow * PIPE_W] === 0) grid[inRow * PIPE_W] = 10;
+  blocked.delete(outRow * PIPE_W + PIPE_W - 1);
+  if (grid[outRow * PIPE_W + PIPE_W - 1] === 0) grid[outRow * PIPE_W + PIPE_W - 1] = 10;
+  pipes = {
+    grid, blocked, filled: new Set(),
+    inRow, outRow,
+    fluidAt: null, fluidIn: null,
+    t0: Date.now(), timer: null, phase: "build"   // build | flowing | won | burst
+  };
+  pipes.timer = setTimeout(ppFlowStart, PIPE_GRACE);
+  ppTickUi();
+  renderWork();
+}
+function ppStop() {
+  if (pipes?.timer) { clearTimeout(pipes.timer); clearInterval(pipes.timer); pipes.timer = null; }
+  if (pipes?.uiIv) { clearInterval(pipes.uiIv); pipes.uiIv = null; }
+}
+function ppTickUi() {
+  pipes.uiIv = setInterval(() => {
+    const el = document.querySelector("#pp-status");
+    if (el && pipes.phase === "build") {
+      const left = Math.max(0, Math.ceil((pipes.t0 + PIPE_GRACE - Date.now()) / 1000));
+      el.textContent = `Fluid in ${left}s — build!`;
+    }
+  }, 250);
+}
+function ppFlowStart() {
+  if (!pipes || pipes.phase !== "build") return;
+  pipes.phase = "flowing";
+  pipes.fluidAt = pipes.inRow * PIPE_W;    // entering the inlet cell from the left wall
+  pipes.fluidIn = 8;                       // L
+  ppAdvance(true);
+  pipes.timer = setInterval(() => ppAdvance(false), PIPE_FLOW);
+}
+function ppAdvance(entering) {
+  if (!pipes || pipes.phase !== "flowing") return;
+  const i = pipes.fluidAt, inSide = pipes.fluidIn, m = pipes.grid[i];
+  if (entering) {
+    if (!(m & inSide) || pipes.blocked.has(i)) return ppBurst();
+    pipes.filled.add(i);
+    renderWork();
+    return;
+  }
+  // leave the current cell: crosses go straight; others take the one other opening
+  let out;
+  if (m === 15) out = oppDir(inSide);
+  else out = m & ~inSide;
+  if (!out || (out & (out - 1))) return ppBurst();   // no exit or ambiguous piece
+  const x = i % PIPE_W, y = Math.floor(i / PIPE_W);
+  let nx = x, ny = y;
+  if (out === 1) ny--; else if (out === 2) nx++; else if (out === 4) ny++; else nx--;
+  if (nx >= PIPE_W && y === pipes.outRow && out === 2) return ppWin();
+  if (nx < 0 || nx >= PIPE_W || ny < 0 || ny >= PIPE_H) return ppBurst();
+  const ni = ny * PIPE_W + nx;
+  if (pipes.blocked.has(ni) || !(pipes.grid[ni] & oppDir(out)) || pipes.filled.has(ni)) return ppBurst();
+  pipes.fluidAt = ni;
+  pipes.fluidIn = oppDir(out);
+  pipes.filled.add(ni);
+  renderWork();
+}
+function ppWin() {
+  ppStop();
+  pipes.phase = "won";
+  const secs = (Date.now() - pipes.t0) / 1000;
+  const bonus = Math.round(30 * Math.max(0, Math.min(1, (75 - secs) / 50)));   // full <= 25s
+  payWork("pipes", 60 + bonus, `routing the flow in ${Math.round(secs)}s`);
+}
+function ppBurst() {
+  ppStop();
+  pipes.phase = "burst";
+  renderWork();
+}
+function ppRotate(i) {
+  if (!pipes || pipes.phase === "won" || pipes.phase === "burst") return;
+  if (pipes.blocked.has(i) || pipes.filled.has(i)) return;
+  pipes.grid[i] = rotMask(pipes.grid[i]);
+  renderWork();
+}
+function ppHtml() {
+  if (!pipes) ppNew();
+  const rows = [];
+  for (let y = 0; y < PIPE_H; y++) {
+    let row = `<div class="pp-edge">${y === pipes.inRow ? "▶" : ""}</div>`;
+    for (let x = 0; x < PIPE_W; x++) {
+      const i = y * PIPE_W + x;
+      const m = pipes.grid[i];
+      const cls = pipes.blocked.has(i) ? "blocked" : pipes.filled.has(i) ? "filled" : "";
+      row += `<button class="pp-cell ${cls}" data-pp="${i}">${pipes.blocked.has(i) ? "▓" : PIPE_CHAR[m] || ""}</button>`;
+    }
+    row += `<div class="pp-edge">${y === pipes.outRow ? "▶" : ""}</div>`;
+    rows.push(`<div class="pp-row">${row}</div>`);
+  }
+  const status = pipes.phase === "build" ? "" :
+    pipes.phase === "flowing" ? "FLUID FLOWING — stay ahead of it" :
+    pipes.phase === "won" ? "Flow routed. The machine hums approvingly." :
+    "BURST. Fluid everywhere. Janitorial has been notified.";
+  return `
+    ${capLine("pipes")}
+    <div class="ms-bar">
+      <span class="muted" style="font-size:12px" id="pp-status">${status || "Fluid incoming — build!"}</span>
+      <button class="ghost" id="pp-new">New board</button>
+    </div>
+    <div class="pp-grid">${rows.join("")}</div>
+    <div class="casino-msg ${pipes.phase === "won" ? "up" : pipes.phase === "burst" ? "down" : ""}">${
+      pipes.phase === "won" ? "₡60 + speed bonus, paid." :
+      pipes.phase === "burst" ? "No pay for flooded floors. New board to try again." :
+      "Click tiles to rotate. Route ▶ inlet to ▶ outlet before the fluid outruns your plumbing. Filled pipes lock."}</div>`;
+}
+
 /* ================= RENDER ================= */
 export function renderWork() {
   const el = api.el();
@@ -317,16 +463,18 @@ export function renderWork() {
         <button data-wmode="mines" class="${mode === "mines" ? "active" : ""}">💣 Minesweeper</button>
         <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">🐍 Snake</button>
         <button data-wmode="hack" class="${mode === "hack" ? "active" : ""}">💻 Hack</button>
+        <button data-wmode="pipes" class="${mode === "pipes" ? "active" : ""}">🔧 Pipes</button>
       </div>
     </div>
     <div class="casino-panel ${mode === "hack" ? "hk-panel" : ""}">
-      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : hkHtml()}
+      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : mode === "hack" ? hkHtml() : ppHtml()}
     </div>
     <p class="muted" style="font-size:12px;margin-top:12px">Honest wages, no house edge. Each job caps at ${api.fmt(DAY_CAP)} a day, resets midnight ET.</p>`;
 
   el.querySelectorAll("[data-wmode]").forEach((b) =>
     b.addEventListener("click", () => {
       if (mode === "snake" && b.dataset.wmode !== "snake") snStop();
+      if (mode === "pipes" && b.dataset.wmode !== "pipes" && pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
       mode = b.dataset.wmode;
       renderWork();
     }));
@@ -344,6 +492,17 @@ export function renderWork() {
   el.querySelector("#sn-start")?.addEventListener("click", snStart);
   el.querySelectorAll("[data-sd]").forEach((b) =>
     b.addEventListener("click", () => snTurn(Number(b.dataset.sd))));
+  const snCv = el.querySelector("#sn-canvas");
+  if (snCv) {
+    let sx = 0, sy = 0;
+    snCv.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+    snCv.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) < 18 && Math.abs(dy) < 18) return;
+      snTurn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+    }, { passive: true });
+  }
+  if (mode === "snake") snResume();
   if (snake) snDraw();
 
   // hack
@@ -355,11 +514,18 @@ export function renderWork() {
     hkIn.addEventListener("keydown", (e) => { if (e.key === "Enter" && hkIn.value.trim()) hkGuess(hkIn.value); });
     if (mode === "hack") hkIn.focus();
   }
+  el.querySelectorAll("[data-pp]").forEach((c) =>
+    c.addEventListener("click", () => ppRotate(Number(c.dataset.pp))));
+  el.querySelector("#pp-new")?.addEventListener("click", ppNew);
+
   const hkLog = el.querySelector("#hk-log");
   if (hkLog) hkLog.scrollTop = hkLog.scrollHeight;
 }
 
 export function initWork(apiIn) {
   api = apiIn;
-  return { renderWork, stop: snStop };
+  return { renderWork, stop: () => {
+    snStop();
+    if (pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
+  } };
 }

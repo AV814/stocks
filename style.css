@@ -613,9 +613,10 @@ header {
 .keno-stat span { color: var(--amber); font-weight: 700; }
 
 /* ---------- leaderboard hover card + presence ---------- */
-.lb-name { position: relative; cursor: pointer; }
+.lb-name { cursor: pointer; }
+.lb-row { position: relative; }
 .lb-tip {
-  display: none; position: absolute; top: 100%; left: 0; z-index: 30;
+  display: none; position: absolute; top: calc(100% + 2px); left: 44px; z-index: 30;
   min-width: 240px; padding: 10px 12px;
   background: var(--panel); border: 2px solid;
   border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);

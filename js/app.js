@@ -689,13 +689,14 @@ function renderLeaderboard() {
 
     return `<div class="lb-row ${isMe ? "me" : ""} ${tipOpen === u.id ? "tip-open" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
-      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span>${tip}</div>
+      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span></div>
       <div class="lb-val">${fmt(u.total)}</div>
       <div class="lb-val ${g >= 0 ? "up" : "down"}">${pct(g)}</div>
       <div class="lb-act">
         ${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}
         <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : lastSeenOf(u) ? "Last seen " + new Date(lastSeenOf(u)).toLocaleString() : "Never seen online"}"></span>
       </div>
+      ${tip}
     </div>
     ${open ? `<div class="lb-send-row">
       <input type="number" id="send-amt" min="0.01" step="0.01" placeholder="Amount">

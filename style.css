@@ -621,7 +621,7 @@ header {
   border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
   box-shadow: 3px 3px 0 rgba(0,0,0,0.35);
 }
-.lb-row:hover .lb-tip, .lb-row.tip-open .lb-tip { display: block; }
+.lb-row.tip-open .lb-tip { display: block; animation: tip-drop 0.12s ease; }
 .lb-tip-h {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
   color: var(--amber); margin: 6px 0 3px; text-transform: uppercase;
@@ -637,3 +637,4 @@ header {
   background: #555c50; border: 1px solid var(--bev-dark);
 }
 .lb-dot.on { background: #7ec850; box-shadow: 0 0 4px #7ec850; }
+@keyframes tip-drop { from { transform: translateY(-4px); opacity: 0; } }

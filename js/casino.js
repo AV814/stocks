@@ -55,10 +55,10 @@ async function doSpin() {
   const net = payout - bet;
 
   // settle up front (single transaction: -bet +payout); animation plays regardless
-  bumpStat("slots");
   let settled = true;
   try { await api.settle(net, bet); }
   catch (e) { settled = false; slots.spinning = false; alert(e.message); renderCasino(); return; }
+  bumpStat("slots");
 
   // animate: reels stop left → right
   renderCasino();
@@ -294,6 +294,20 @@ const ROUL_REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 const ROUL_KEY = "vapor-roulette-pending";
 let roul = { bets: {}, chip: 5, spinning: false, result: null, lastWin: 0, msg: "" };
 
+let roulRecovering = false;
+function recoverRoulette() {
+  if (roulRecovering || !api.me?.()) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(ROUL_KEY) || "null"); }
+  catch { localStorage.removeItem(ROUL_KEY); return; }
+  if (!p || !(p.win > 0)) return;
+  roulRecovering = true;
+  api.settle(p.win, 0)
+    .then(() => { localStorage.removeItem(ROUL_KEY); api.toast("ROULETTE", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .catch(() => {})
+    .finally(() => { roulRecovering = false; });
+}
+
 function roulTotal() { return Object.values(roul.bets).reduce((a, b) => a + b, 0); }
 function roulPlace(key) {
   if (roul.spinning) return;
@@ -443,6 +457,7 @@ async function kenoBuy() {
   renderCasino();
 }
 async function kenoResolveDue() {
+  if (!api.me?.()) return;          // not signed in yet — tickets settle after login
   const cur = kenoRound();
   let changed = false;
   for (const t of kenoTickets) {
@@ -570,7 +585,7 @@ function renderCasino() {
         </div>` : ""}
     </div>`;
 
-  const lottoHtml = `<div id="lotto-root"></div>`;
+  const lottoHtml = `${statLine("lotto")}<div id="lotto-root"></div>`;
 
   const numCell = (n) => {
     const amt = roul.bets[`n${n}`];
@@ -693,6 +708,7 @@ function renderCasino() {
     renderCasino();
   });
   watchCasinoStats();
+  recoverRoulette();
   if (mode === "lotto") api.renderLotto();
 }
 
@@ -700,9 +716,5 @@ export function initCasino(apiIn) {
   api = apiIn;
   loadScratch();
   kenoLoad();
-  try {
-    const p = JSON.parse(localStorage.getItem(ROUL_KEY) || "null");
-    if (p && p.win > 0) api.settle(p.win, 0).then(() => localStorage.removeItem(ROUL_KEY)).catch(() => {});
-  } catch { localStorage.removeItem(ROUL_KEY); }
   return { render: renderCasino };
 }

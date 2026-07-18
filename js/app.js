@@ -649,6 +649,13 @@ const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let sendOpen = null; // uid of the row with the send form open
+let tipOpen = null;  // uid of the row with the stats popdown open
+document.addEventListener("click", (e) => {
+  if (tipOpen && !e.target.closest(".lb-name") && !e.target.closest(".lb-tip")) {
+    tipOpen = null;
+    if (view === "leaderboard") renderLeaderboard();
+  }
+});
 
 function renderLeaderboard() {
   const ranked = allUsers
@@ -680,7 +687,7 @@ function renderLeaderboard() {
       ${gameRows || `<div class="lb-tip-row muted"><span>Hasn't touched the Lounge</span></div>`}
     </div>`;
 
-    return `<div class="lb-row ${isMe ? "me" : ""}" data-tip-uid="${u.id}">
+    return `<div class="lb-row ${isMe ? "me" : ""} ${tipOpen === u.id ? "tip-open" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
       <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span>${tip}</div>
       <div class="lb-val">${fmt(u.total)}</div>
@@ -698,7 +705,12 @@ function renderLeaderboard() {
   }).join("");
 
   $("#view-leaderboard").querySelectorAll(".lb-name").forEach((n) =>
-    n.addEventListener("click", () => n.closest(".lb-row").classList.toggle("tip-open")));
+    n.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const uid = n.closest(".lb-row").dataset.tipUid;
+      tipOpen = tipOpen === uid ? null : uid;
+      renderLeaderboard();
+    }));
   $("#view-leaderboard").querySelectorAll(".lb-send").forEach((b) =>
     b.addEventListener("click", () => {
       sendOpen = sendOpen === b.dataset.uid ? null : b.dataset.uid;

@@ -111,9 +111,13 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 Work plays are counted in the same global and per-player stat counters as casino games.
 
 
+## Leveling
+
+Pay credits into your XP bar (card at the top of Standings). The first level costs ₡1,000 and each level adds ₡200 to the next requirement. Standings rank by level first, then net worth within a level; each row shows current net worth plus a lifetime figure (net worth + everything invested in levels), so leveling never looks like losing money.
+
 ## Recent additions
 
-- **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: ❦ ✿ ♫ ★ ◆ 7 — floral-heart cherries, blossom, bell-note; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.
+- **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: ❦ ✿ ♫ ★ ◆ 7, each in its own color — cherry red, lemon yellow, brass, gold, ice, lucky red; scratch symbols colored likewise; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.
 
 - **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
 - **Passive dividends**: holdings pay 0.02% of their current value every 10 minutes (each payout rounded to the cent), landing on shared wall-clock boundaries (:00, :10, :20…) for everyone at once, accruing while offline (capped at 48 hours). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.

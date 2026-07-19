@@ -115,6 +115,10 @@ Work plays are counted in the same global and per-player stat counters as casino
 
 Pay credits into your XP bar (card at the top of Standings). The first level costs ₡1,000 and each level adds ₡200 to the next requirement. Standings rank by level first, then net worth within a level; each row shows current net worth plus a lifetime figure (net worth + everything invested in levels), so leveling never looks like losing money.
 
+## Stock display & news indicators
+
+Stocks show abbreviations only (no company names). Edit `STOCK_ABBR` near the top of the market section in `js/app.js` to set a custom abbreviation per ticker; anything unlisted shows its ticker. News renders as compact indicators instead of headlines: `ABBR ↑` for good news, `ABBR ↑↑!` for breaking good (impact ≥ 15%, tune via `NEWS_BREAKING`), and `↓` / `↓↓!` for bad. Applies to the News tab, the ticker tape, and market-wire toasts. News-event dividends still key off the same impact numbers underneath.
+
 ## Recent additions
 
 - **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: ❦ ✿ ♫ ★ ◆ 7, each in its own color — cherry red, lemon yellow, brass, gold, ice, lucky red; scratch symbols colored likewise; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.

@@ -979,3 +979,6 @@ nav.tabs, .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar
   .rd-gear { gap: 6px; }
   .chat-draw { flex-direction: column; }
 }
+
+/* compact arrow news */
+.news-ind { font-family: var(--mono); font-weight: 700; font-size: 16px; letter-spacing: 1px; }

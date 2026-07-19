@@ -214,7 +214,7 @@ function revealCell(i) {
    6-deck shoe, fresh shuffle each hand. Dealer stands on all 17s.
    Blackjack pays 3:2. Double on first two cards. No splits.     */
 
-const bj = { phase: "idle", deck: [], player: [], dealer: [], bet: 0, doubled: false, msg: "" };
+const bj = { phase: "idle", deck: [], hands: [], active: 0, dealer: [], bet: 0, msg: "", anim: null, split: false };
 
 function freshShoe() {
   const suits = ["♠", "♥", "♦", "♣"];
@@ -239,9 +239,10 @@ function handValue(cards) {
   return v;
 }
 const isBlackjack = (cards) => cards.length === 2 && handValue(cards) === 21;
+const curHand = () => bj.hands[bj.active];
 
 async function bjDeal() {
-  if (bj.phase !== "idle" && bj.phase !== "done") return;
+  if (bj.phase === "player") return;
   const bet = Math.floor(Number(document.querySelector("#bj-bet")?.value || 25));
   if (!(bet > 0)) return;
   try { await api.settle(-bet, bet); }
@@ -249,56 +250,115 @@ async function bjDeal() {
 
   bumpStat("blackjack");
   bj.deck = freshShoe();
-  bj.player = [bj.deck.pop(), bj.deck.pop()];
+  bj.hands = [{ cards: [bj.deck.pop(), bj.deck.pop()], bet, doubled: false, stood: false }];
+  bj.active = 0;
   bj.dealer = [bj.deck.pop(), bj.deck.pop()];
   bj.bet = bet;
-  bj.doubled = false;
+  bj.split = false;
   bj.msg = "";
   bj.phase = "player";
-  bj.anim = { player: new Set([0, 1]), dealer: new Set([0]), hole: false, base: 0.1 };
+  bj.anim = { player: new Set(["0-0", "0-1"]), dealer: new Set([0]), hole: false, base: 0.1 };
 
-  if (isBlackjack(bj.player)) await bjFinish();
+  if (isBlackjack(bj.hands[0].cards)) await bjFinish();
   else renderCasino();
+}
+
+const canSplit = () => bj.phase === "player" && !bj.split && bj.hands.length === 1
+  && bj.hands[0].cards.length === 2 && bj.hands[0].cards[0].r === bj.hands[0].cards[1].r
+  && api.getCash() >= bj.bet;
+
+async function bjSplit() {
+  if (!canSplit()) return;
+  try { await api.settle(-bj.bet, bj.bet); }
+  catch (e) { alert(e.message); return; }
+  const [c1, c2] = bj.hands[0].cards;
+  bj.split = true;
+  bj.hands = [
+    { cards: [c1, bj.deck.pop()], bet: bj.bet, doubled: false, stood: false },
+    { cards: [c2, bj.deck.pop()], bet: bj.bet, doubled: false, stood: false }
+  ];
+  bj.active = 0;
+  bj.anim = { player: new Set(["0-1", "1-1"]), dealer: new Set(), hole: false, base: 0 };
+  if (c1.r === "A") {
+    // split aces get one card each and stand — house rules everywhere
+    bj.hands.forEach((h) => h.stood = true);
+    return bjFinish();
+  }
+  bjAdvanceIfDone();
+  renderCasino();
+}
+
+function bjAdvanceIfDone() {
+  // move to the next unfinished hand; finish when all are done
+  while (bj.active < bj.hands.length) {
+    const h = bj.hands[bj.active];
+    if (!h.stood && handValue(h.cards) <= 21) return false;
+    bj.active++;
+  }
+  return true;
 }
 function bjHit() {
   if (bj.phase !== "player") return;
-  bj.player.push(bj.deck.pop());
-  bj.anim = { player: new Set([bj.player.length - 1]), dealer: new Set(), hole: false, base: 0 };
-  if (handValue(bj.player) > 21) return bjFinish();
+  const h = curHand();
+  h.cards.push(bj.deck.pop());
+  bj.anim = { player: new Set([`${bj.active}-${h.cards.length - 1}`]), dealer: new Set(), hole: false, base: 0 };
+  if (handValue(h.cards) > 21) {
+    h.stood = true;
+    bj.active++;
+    if (bjAdvanceIfDone()) return bjFinish();
+  }
+  renderCasino();
+}
+function bjStand() {
+  if (bj.phase !== "player") return;
+  curHand().stood = true;
+  bj.active++;
+  if (bjAdvanceIfDone()) return bjFinish();
   renderCasino();
 }
 async function bjDouble() {
-  if (bj.phase !== "player" || bj.player.length !== 2) return;
-  try { await api.settle(-bj.bet, bj.bet); }
+  if (bj.phase !== "player") return;
+  const h = curHand();
+  if (h.cards.length !== 2) return;
+  try { await api.settle(-h.bet, h.bet); }
   catch (e) { alert(e.message); return; }
-  bj.doubled = true;
-  bj.player.push(bj.deck.pop());
-  bj.anim = { player: new Set([bj.player.length - 1]), dealer: new Set(), hole: false, base: 0 };
-  return bjFinish();
+  h.doubled = true;
+  h.cards.push(bj.deck.pop());
+  h.stood = true;
+  bj.anim = { player: new Set([`${bj.active}-2`]), dealer: new Set(), hole: false, base: 0 };
+  bj.active++;
+  if (bjAdvanceIfDone()) return bjFinish();
+  renderCasino();
 }
+
 async function bjFinish() {
   bj.phase = "dealer";
-  const pv = handValue(bj.player);
-  const stake = bj.doubled ? bj.bet * 2 : bj.bet;
+  const natural = !bj.split && bj.hands.length === 1 && isBlackjack(bj.hands[0].cards);
+  const anyLive = bj.hands.some((h) => handValue(h.cards) <= 21) && !natural;
 
-  if (pv <= 21 && !isBlackjack(bj.player)) {
+  if (anyLive) {
     while (handValue(bj.dealer) < 17) bj.dealer.push(bj.deck.pop());
   }
   const dv = handValue(bj.dealer);
+  const dealerBJ = isBlackjack(bj.dealer);
 
-  let payout = 0, msg;
-  if (pv > 21) { msg = `Bust with ${pv}. House takes ${api.fmt(stake)}.`; }
-  else if (isBlackjack(bj.player) && !isBlackjack(bj.dealer)) {
-    payout = bj.bet * 2.5;
-    msg = `Blackjack! Pays 3:2 — ${api.fmt(payout)}.`;
-  }
-  else if (isBlackjack(bj.dealer) && !isBlackjack(bj.player)) { msg = "Dealer blackjack. Ouch."; }
-  else if (dv > 21) { payout = stake * 2; msg = `Dealer busts with ${dv}. You win ${api.fmt(payout)}.`; }
-  else if (pv > dv) { payout = stake * 2; msg = `${pv} beats ${dv}. You win ${api.fmt(payout)}.`; }
-  else if (pv < dv) { msg = `Dealer's ${dv} beats your ${pv}.`; }
-  else { payout = stake; msg = `Push at ${pv}. Bet returned.`; }
+  let payout = 0;
+  const parts = [];
+  bj.hands.forEach((h, idx) => {
+    const pv = handValue(h.cards);
+    const stake = h.doubled ? h.bet * 2 : h.bet;
+    const tag = bj.hands.length > 1 ? `Hand ${idx + 1}: ` : "";
+    if (pv > 21) { parts.push(`${tag}bust with ${pv}`); return; }
+    if (natural && !dealerBJ) { payout += h.bet * 2.5; parts.push(`Blackjack! Pays 3:2 — ${api.fmt(h.bet * 2.5)}`); return; }
+    if (dealerBJ && !natural) { parts.push(`${tag}dealer blackjack`); return; }
+    if (dv > 21) { payout += stake * 2; parts.push(`${tag}dealer busts, +${api.fmt(stake * 2)}`); return; }
+    if (pv > dv) { payout += stake * 2; parts.push(`${tag}${pv} beats ${dv}, +${api.fmt(stake * 2)}`); return; }
+    if (pv < dv) { parts.push(`${tag}${dv} beats ${pv}`); return; }
+    payout += stake; parts.push(`${tag}push at ${pv}`);
+  });
+  const msg = parts.join(" · ") + ".";
 
-  const preDealt = bj.anim?.player || new Set();     // a just-hit/doubled card still flips
+  const preDealt = bj.anim?.player || new Set();
   const drawn = new Set();
   for (let i = 2; i < bj.dealer.length; i++) drawn.add(i);
   const base = preDealt.size ? 0.35 : 0.1;
@@ -773,29 +833,30 @@ function renderCasino() {
             return cardHtml(c, hideHole && i === 1);
           }).join("")}</div>
         </div>
-        <div class="bj-row">
-          <span class="bj-label">You${bj.player.length ? " · " + handValue(bj.player) : ""}${bj.doubled ? " (doubled)" : ""}</span>
-          <div>${bj.player.map((c, i) => {
-            const a = bj.anim;
-            if (a && a.player.has(i)) {
-              const order = [...a.player].sort((x, y) => x - y).indexOf(i);
+        ${bj.hands.map((h, hi) => `<div class="bj-row ${inHand && hi === bj.active && bj.hands.length > 1 ? "bj-active" : ""}">
+          <span class="bj-label">${bj.hands.length > 1 ? `Hand ${hi + 1}` : "You"}${h.cards.length ? " · " + handValue(h.cards) : ""}${h.doubled ? " (doubled)" : ""}${inHand && hi === bj.active && bj.hands.length > 1 ? " ◀" : ""}</span>
+          <div>${h.cards.map((c, i) => {
+            const a = bj.anim, key = hi + "-" + i;
+            if (a && a.player.has(key)) {
+              const order = [...a.player].sort().indexOf(key);
               return cardHtml(c, false, order * 0.09);
             }
             return cardHtml(c);
           }).join("")}</div>
-        </div>
+        </div>`).join("")}
       </div>
       <div class="casino-controls">
         ${inHand ? `
           <button class="btn-bj" id="bj-hit">Hit</button>
           <button class="btn-bj" id="bj-stand">Stand</button>
-          ${bj.player.length === 2 ? `<button class="btn-bj ghost-bj" id="bj-double" ${api.getCash() < bj.bet ? "disabled" : ""}>Double</button>` : ""}
+          ${curHand()?.cards.length === 2 ? `<button class="btn-bj ghost-bj" id="bj-double" ${api.getCash() < curHand().bet ? "disabled" : ""}>Double</button>` : ""}
+          ${canSplit() ? `<button class="btn-bj ghost-bj" id="bj-split">Split</button>` : ""}
         ` : `
           <input id="bj-bet" type="number" min="1" step="1" value="${bj.bet || 25}">
           <button class="btn-spin" id="bj-deal">Deal</button>
         `}
       </div>
-      <div class="casino-msg ${bj.phase === "done" && bj.anim ? "pk-msg-in" : ""}" ${bj.phase === "done" && bj.anim ? `style="animation-delay:${(bj.anim.base + 0.2 + bj.anim.dealer.size * 0.16 + 0.25).toFixed(2)}s"` : ""}>${inHand ? `Bet: ${api.fmt(bj.bet)} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. No splits — this is a dive bar, not the Bellagio.")}</div>
+      <div class="casino-msg ${bj.phase === "done" && bj.anim ? "pk-msg-in" : ""}" ${bj.phase === "done" && bj.anim ? `style="animation-delay:${(bj.anim.base + 0.2 + bj.anim.dealer.size * 0.16 + 0.25).toFixed(2)}s"` : ""}>${inHand ? `${bj.hands.length > 1 ? `Playing hand ${bj.active + 1} of ${bj.hands.length}` : `Bet: ${api.fmt(bj.bet)}`} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. Split pairs once; split aces get one card each.")}</div>
     </div>`;
 
   const scratchHtml = `
@@ -962,8 +1023,9 @@ function renderCasino() {
   el.querySelector("#btn-spin")?.addEventListener("click", doSpin);
   el.querySelector("#bj-deal")?.addEventListener("click", bjDeal);
   el.querySelector("#bj-hit")?.addEventListener("click", bjHit);
-  el.querySelector("#bj-stand")?.addEventListener("click", bjFinish);
+  el.querySelector("#bj-stand")?.addEventListener("click", bjStand);
   el.querySelector("#bj-double")?.addEventListener("click", bjDouble);
+  el.querySelector("#bj-split")?.addEventListener("click", bjSplit);
   el.querySelectorAll(".scratch-buy").forEach((b) =>
     b.addEventListener("click", () => buyScratch(SCRATCH_TIERS.find((t) => t.id === b.dataset.tier))));
   el.querySelectorAll(".scratch-cell").forEach((c) => {

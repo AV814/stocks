@@ -873,3 +873,9 @@ header {
 .rd-log .rd-hurt { color: var(--down); }
 .rd-log .rd-heal { color: #7ec8e3; }
 .rd-log .rd-boss { color: #cc7a5a; font-weight: 700; }
+
+/* blackjack split hands */
+.bj-row.bj-active { background: rgba(149, 136, 49, 0.25); outline: 1px solid var(--select); }
+.rd-itemrow { display: flex; align-items: center; gap: 8px; width: 100%; }
+.rd-itemrow > span:first-child { flex: 1; }
+.rd-intent { color: var(--amber) !important; font-weight: 700; }

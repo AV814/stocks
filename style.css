@@ -835,3 +835,6 @@ header {
 @keyframes pk-open { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
 .pk-msg-in { animation: pk-msg 0.3s ease backwards; }
 @keyframes pk-msg { from { opacity: 0; transform: translateY(4px); } }
+
+/* poker: the house's unused 6th card */
+.pk-unused { opacity: 0.35; }

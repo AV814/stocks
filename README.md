@@ -68,7 +68,7 @@ The Admin tab includes a Treasury panel listing every player with their cash bal
 
 ## More Vapor Lounge games & governance
 
-**Five-Card Draw Poker** (casino) — heads-up against the house. Bet, receive five cards, optionally double down while the dealer is still face-down, mark any cards to discard, then draw and show down. The dealer draws on a sensible strategy. Even money on the total stake; the house edge is that ties go to the house.
+**Five-Card Draw Poker** (casino) — heads-up against the house. Bet, receive five cards, optionally double down while the dealer is still face-down, mark any cards to discard, then draw and show down. The dealer draws on a sensible strategy. Wins pay 1.95x the stake, and doubling down buys the house a sixth card (it plays its best five of six) — sim-tuned to roughly 50/50 overall (~1% house). Card flips animate on the swap and showdown, in blackjack too.
 
 
 **Roulette** — European single-zero wheel. Stack chips of any size across straight numbers (35:1), dozens (2:1), and even-money outside bets; zero sweeps the outside. ~2.7% house edge, the gentlest table in the Lounge.

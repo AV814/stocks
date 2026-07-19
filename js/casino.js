@@ -235,6 +235,7 @@ async function bjDeal() {
   bj.doubled = false;
   bj.msg = "";
   bj.phase = "player";
+  bj.anim = { player: new Set([0, 1]), dealer: new Set([0]), hole: false, base: 0.1 };
 
   if (isBlackjack(bj.player)) await bjFinish();
   else renderCasino();
@@ -242,6 +243,7 @@ async function bjDeal() {
 function bjHit() {
   if (bj.phase !== "player") return;
   bj.player.push(bj.deck.pop());
+  bj.anim = { player: new Set([bj.player.length - 1]), dealer: new Set(), hole: false, base: 0 };
   if (handValue(bj.player) > 21) return bjFinish();
   renderCasino();
 }
@@ -251,6 +253,7 @@ async function bjDouble() {
   catch (e) { alert(e.message); return; }
   bj.doubled = true;
   bj.player.push(bj.deck.pop());
+  bj.anim = { player: new Set([bj.player.length - 1]), dealer: new Set(), hole: false, base: 0 };
   return bjFinish();
 }
 async function bjFinish() {
@@ -275,13 +278,38 @@ async function bjFinish() {
   else if (pv < dv) { msg = `Dealer's ${dv} beats your ${pv}.`; }
   else { payout = stake; msg = `Push at ${pv}. Bet returned.`; }
 
+  const preDealt = bj.anim?.player || new Set();     // a just-hit/doubled card still flips
+  const drawn = new Set();
+  for (let i = 2; i < bj.dealer.length; i++) drawn.add(i);
+  const base = preDealt.size ? 0.35 : 0.1;
+  bj.anim = { player: preDealt, dealer: drawn, hole: true, base };
+  const revealMs = (base + 0.2 + drawn.size * 0.16 + 0.55) * 1000;
+
   if (payout > 0) {
-    try { await api.settle(payout, 0); }
-    catch (e) { console.error("payout failed", e); msg += " (Payout failed — refresh and check your cash.)"; }
+    localStorage.setItem(BJ_KEY, JSON.stringify({ win: payout }));   // survives a mid-reveal reload
+    setTimeout(async () => {
+      try { await api.settle(payout, 0); localStorage.removeItem(BJ_KEY); }
+      catch (e) { console.error("blackjack payout failed, recovery will retry", e); }
+    }, revealMs);
   }
   bj.msg = msg;
   bj.phase = "done";
   renderCasino();
+}
+
+const BJ_KEY = "vapor-bj-pending";
+let bjRecovering = false;
+function recoverBlackjack() {
+  if (bjRecovering || !api.me?.()) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(BJ_KEY) || "null"); }
+  catch { localStorage.removeItem(BJ_KEY); return; }
+  if (!p || !(p.win > 0)) return;
+  bjRecovering = true;
+  api.settle(p.win, 0)
+    .then(() => { localStorage.removeItem(BJ_KEY); api.toast("BLACKJACK", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .catch(() => {})
+    .finally(() => { bjRecovering = false; });
 }
 
 
@@ -555,6 +583,17 @@ function pkCmp(a, b) {
   return 0;
 }
 
+// best 5-of-6 for the doubled-hand bonus card; returns {s, name, unusedIdx}
+function pkBest5of6(cards) {
+  let best = null, unused = 5;
+  for (let skip = 0; skip < 6; skip++) {
+    const sub = cards.filter((_, i) => i !== skip);
+    const sc = pkScore(sub);
+    if (!best || pkCmp(sc.s, best.s) > 0) { best = sc; unused = skip; }
+  }
+  return { ...best, unusedIdx: unused };
+}
+
 // dealer drawing strategy: sensible video-poker holds
 function pkDealerPlay() {
   const h = pk.dealer;
@@ -624,21 +663,31 @@ async function pkDraw() {
   pk.swapped = new Set(pk.discard);
   pk.hand = pk.hand.map((c, i) => pk.discard.has(i) ? pk.deck.pop() : c);
   pkDealerPlay();
-  const mine = pkScore(pk.hand), house = pkScore(pk.dealer);
+  // the double-down tax: a doubled hand buys the house one extra card,
+  // and it plays the best five of six (sim-tuned to ~50/50 overall)
+  let house;
+  if (pk.doubled) {
+    pk.dealer.push(pk.deck.pop());
+    house = pkBest5of6(pk.dealer);
+  } else {
+    house = pkScore(pk.dealer);
+  }
+  const mine = pkScore(pk.hand);
   const stake = pk.doubled ? pk.bet * 2 : pk.bet;
   const cmp = pkCmp(mine.s, house.s);
   pk.result = { mine, house };
   // reveal choreography: swapped cards flip in, then the house flips
   pk.revealBase = pk.swapped.size ? 0.55 : 0.15;
-  const revealDone = (pk.revealBase + 5 * 0.16 + 0.45) * 1000;
+  const revealDone = (pk.revealBase + pk.dealer.length * 0.16 + 0.45) * 1000;
   if (cmp > 0) {
-    pk.msg = `${mine.name} beats ${house.name} — you win ${api.fmt(stake * 2)}.`;
-    localStorage.setItem(PK_KEY, JSON.stringify({ win: stake * 2 }));   // survives a mid-reveal reload
+    const winnings = Math.round(stake * 1.95 * 100) / 100;
+    pk.msg = `${mine.name} beats ${house.name} — you win ${api.fmt(winnings)}.`;
+    localStorage.setItem(PK_KEY, JSON.stringify({ win: winnings }));   // survives a mid-reveal reload
     setTimeout(async () => {
-      try { await api.settle(stake * 2, 0); localStorage.removeItem(PK_KEY); }
+      try { await api.settle(winnings, 0); localStorage.removeItem(PK_KEY); }
       catch (e) { console.error("poker payout failed, recovery will retry", e); }
     }, revealDone);
-    if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `${mine.name}! ${api.fmt(stake * 2)}`), revealDone);
+    if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `${mine.name}! ${api.fmt(winnings)}`), revealDone);
   } else if (cmp === 0) {
     pk.msg = `Both show ${mine.name}. Ties go to the house. That's the edge.`;
   } else {
@@ -649,9 +698,15 @@ async function pkDraw() {
 }
 
 /* ================= RENDER ================= */
-function cardHtml(c, hidden) {
+function cardHtml(c, hidden, delay) {
   if (hidden) return `<span class="bj-card back">🂠</span>`;
   const red = c.s === "♥" || c.s === "♦";
+  if (delay !== undefined && delay !== null) {
+    return `<span class="pk-flip" style="animation-delay:${delay.toFixed(2)}s">
+      <span class="pk-face pk-back">🂠</span>
+      <span class="pk-face pk-front bj-card ${red ? "red" : ""}">${c.r}${c.s}</span>
+    </span>`;
+  }
   return `<span class="bj-card ${red ? "red" : ""}">${c.r}${c.s}</span>`;
 }
 
@@ -691,11 +746,23 @@ function renderCasino() {
       <div class="bj-table">
         <div class="bj-row">
           <span class="bj-label">Dealer${bj.dealer.length && !hideHole ? " · " + handValue(bj.dealer) : ""}</span>
-          <div>${bj.dealer.map((c, i) => cardHtml(c, hideHole && i === 1)).join("")}</div>
+          <div>${bj.dealer.map((c, i) => {
+            const a = bj.anim;
+            if (a && i === 1 && a.hole) return cardHtml(c, false, a.base);
+            if (a && a.dealer.has(i)) return cardHtml(c, false, a.base + (a.hole ? 0.2 : 0) + Math.max(0, i - 2) * 0.16);
+            return cardHtml(c, hideHole && i === 1);
+          }).join("")}</div>
         </div>
         <div class="bj-row">
           <span class="bj-label">You${bj.player.length ? " · " + handValue(bj.player) : ""}${bj.doubled ? " (doubled)" : ""}</span>
-          <div>${bj.player.map((c) => cardHtml(c)).join("")}</div>
+          <div>${bj.player.map((c, i) => {
+            const a = bj.anim;
+            if (a && a.player.has(i)) {
+              const order = [...a.player].sort((x, y) => x - y).indexOf(i);
+              return cardHtml(c, false, order * 0.09);
+            }
+            return cardHtml(c);
+          }).join("")}</div>
         </div>
       </div>
       <div class="casino-controls">
@@ -708,7 +775,7 @@ function renderCasino() {
           <button class="btn-spin" id="bj-deal">Deal</button>
         `}
       </div>
-      <div class="casino-msg">${inHand ? `Bet: ${api.fmt(bj.bet)} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. No splits — this is a dive bar, not the Bellagio.")}</div>
+      <div class="casino-msg ${bj.phase === "done" && bj.anim ? "pk-msg-in" : ""}" ${bj.phase === "done" && bj.anim ? `style="animation-delay:${(bj.anim.base + 0.2 + bj.anim.dealer.size * 0.16 + 0.25).toFixed(2)}s"` : ""}>${inHand ? `Bet: ${api.fmt(bj.bet)} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. No splits — this is a dive bar, not the Bellagio.")}</div>
     </div>`;
 
   const scratchHtml = `
@@ -750,7 +817,7 @@ function renderCasino() {
   const pokerCard = (c, i, mineRow) => {
     const red = c.s === "♥" || c.s === "♦";
     // freshly swapped cards flip in when the showdown renders
-    if (mineRow && pk.phase === "done" && pk.swapped?.has(i)) return pkFlip(c, i * 0.09);
+    if (mineRow && pk.phase === "done" && !pk.animShown && pk.swapped?.has(i)) return pkFlip(c, i * 0.09);
     const disc = mineRow && pk.discard.has(i);
     return `<button class="bj-card pk-card ${red ? "red" : ""} ${disc ? "disc" : ""}" ${mineRow && pkLive ? `data-pk="${i}"` : ""}>${rName(c.r)}${c.s}</button>`;
   };
@@ -759,8 +826,15 @@ function renderCasino() {
       ${statLine("poker")}
       <div class="bj-table">
         <div class="bj-row">
-          <span class="bj-label">House${pk.result ? " · " + pk.result.house.name : ""}</span>
-          <div>${pk.phase === "done" ? pk.dealer.map((c, i) => pkFlip(c, (pk.revealBase || 0.15) + i * 0.16)).join("") :
+          <span class="bj-label">House${pk.result ? " · " + pk.result.house.name : ""}${pk.phase === "done" && pk.doubled ? " (6th card)" : ""}</span>
+          <div>${pk.phase === "done" ? pk.dealer.map((c, i) => {
+                   const dim = pk.doubled && pk.result.house.unusedIdx === i ? "pk-unused" : "";
+                   if (pk.animShown) {
+                     const red = c.s === "♥" || c.s === "♦";
+                     return `<span class="bj-card ${red ? "red" : ""} ${dim}">${rName(c.r)}${c.s}</span>`;
+                   }
+                   return `<span class="${dim}" style="display:inline-block">${pkFlip(c, (pk.revealBase || 0.15) + i * 0.16)}</span>`;
+                 }).join("") :
                  pkLive ? '<span class="bj-card back">🂠</span>'.repeat(5) : ""}</div>
         </div>
         <div class="bj-row">
@@ -777,9 +851,9 @@ function renderCasino() {
           <button class="btn-spin" id="pk-deal">Deal</button>
         `}
       </div>
-      <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") + " pk-msg-in" : ""}" ${pk.phase === "done" ? `style="animation-delay:${((pk.revealBase || 0.15) + 5 * 0.16 + 0.2).toFixed(2)}s"` : ""}>${
-        pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the swap. Double down while the house is still face-down.` :
-        pk.msg || "Five-card draw against the house. Even money, one swap, and ties go to the house."}</div>
+      <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") + (pk.animShown ? "" : " pk-msg-in") : ""}" ${pk.phase === "done" && !pk.animShown ? `style="animation-delay:${((pk.revealBase || 0.15) + pk.dealer.length * 0.16 + 0.2).toFixed(2)}s"` : ""}>${
+        pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the swap. Double down while the house is face-down — but a doubled hand buys the house a sixth card.` :
+        pk.msg || "Five-card draw against the house. Wins pay 1.95x, one swap — and if you double down, the house deals itself a sixth card and plays its best five. Ties go to the house."}</div>
     </div>`;
 
   const numCell = (n) => {
@@ -913,6 +987,9 @@ function renderCasino() {
   watchCasinoStats();
   recoverRoulette();
   recoverPoker();
+  recoverBlackjack();
+  bj.anim = null;                                  // flips play once, not on background re-renders
+  if (pk.phase === "done") pk.animShown = true;
   if (mode === "lotto") api.renderLotto();
 }
 

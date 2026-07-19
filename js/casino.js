@@ -593,64 +593,60 @@ async function kenoResolveDue() {
   kenoResolving = true;
   try {
     const cur = kenoRound();
-    let changed = false;
+    // pass 1: compute every due result, no money moves yet
+    const work = [];
     for (const t of kenoTickets) {
-      // migrate any pre-card single tickets from the old format
-      if (t.round !== undefined && t.startRound === undefined) {
+      if (t.round !== undefined && t.startRound === undefined) {   // migrate old single tickets
         t.startRound = t.round; t.games = 1; t.played = t.paid ? 1 : 0;
         t.lastResolved = t.paid ? t.round : null; t.totalWon = t.payout || 0; t.done = !!t.paid;
       }
       if (t.done) continue;
-      t.played = Math.min(t.played, t.games);            // heal any over-counted cards
       const firstDue = t.lastResolved === null ? t.startRound : t.lastResolved + 1;
       const lastDue = Math.min(cur - 1, t.startRound + t.games - 1);
-      if (lastDue < firstDue) continue;
-
-      // resolve every due game locally first — no awaits mid-loop, so a
-      // 50-game catch-up computes instantly instead of trickling in
-      let batchPayout = 0, bigHit = null;
-      const prevPlayed = t.played, prevResolved = t.lastResolved;
-      for (let r = firstDue; r <= lastDue && t.played < t.games; r++) {
+      const results = [];
+      for (let r = firstDue; r <= lastDue && t.played + results.length < t.games; r++) {
         const draw = kenoDraw(r);
         const hits = t.picks.filter((p) => draw.includes(p)).length;
         const mult = (KENO_PAY[t.picks.length] || {})[hits] || 0;
-        const payout = t.bet * mult;
-        batchPayout += payout;
-        if (mult >= 40) bigHit = { hits, payout };
+        results.push({ r, draw, hits, mult, payout: t.bet * mult });
+      }
+      if (results.length) work.push({ t, results });
+    }
+    if (!work.length) return;
+
+    // pass 2: settle the whole batch in ONE transaction, then commit state
+    const owed = Math.round(work.reduce((a, w) => a + w.results.reduce((b, x) => b + x.payout, 0), 0) * 100) / 100;
+    if (owed > 0) {
+      try { await api.settle(owed, 0); }
+      catch (e) { console.error("keno batch payout failed, retrying later", e); return; }
+    }
+    let bigWin = 0, gamesResolved = 0;
+    for (const { t, results } of work) {
+      for (const x of results) {
         t.played++;
-        t.lastResolved = r;
+        t.lastResolved = x.r;
+        t.totalWon = Math.round((t.totalWon + x.payout) * 100) / 100;
+        gamesResolved++;
+        if (x.mult >= 40) bigWin = Math.max(bigWin, x.payout);
         kenoReport = {
-          picks: t.picks, draw, hits, bet: t.bet, mult, payout,
-          game: t.played, games: t.games,
-          totalWon: Math.round((t.totalWon + batchPayout) * 100) / 100,
-          spent: t.bet * t.games
+          picks: t.picks, draw: x.draw, hits: x.hits, bet: t.bet, mult: x.mult, payout: x.payout,
+          game: t.played, games: t.games, totalWon: t.totalWon, spent: t.bet * t.games
         };
       }
-      batchPayout = Math.round(batchPayout * 100) / 100;
-      // then settle the whole batch in one transaction, one toast
-      if (batchPayout > 0) {
-        try { await api.settle(batchPayout, 0); }
-        catch (e) {
-          t.played = prevPlayed;                          // retry these games next pass
-          t.lastResolved = prevResolved;
-          console.error("keno payout failed, retrying later", e);
-          continue;
-        }
-      }
-      t.totalWon = Math.round((t.totalWon + batchPayout) * 100) / 100;
-      changed = true;
-      if (t.played >= t.games) {
-        t.done = true;
-        if (batchPayout > 0) api.toast("KENO CARD", `+${api.fmt(batchPayout)} received`);
-      } else if (bigHit) {
-        api.toast("KENO", `+${api.fmt(bigHit.payout)} received`);
-      }
+      if (t.played >= t.games) t.done = true;
     }
-    if (changed) {
-      kenoTickets = kenoTickets.filter((t) => !t.done);
-      kenoSave();
-      renderCasino();
+    // one toast per pass: live play calls out big hits or a finished card;
+    // a catch-up after time away announces the combined total once
+    if (gamesResolved === 1) {
+      if (bigWin > 0) api.toast("KENO", `+${api.fmt(bigWin)} received`);
+      const fin = work.find(({ t }) => t.done && t.games > 1 && t.totalWon > 0);
+      if (fin) api.toast("KENO CARD", `+${api.fmt(fin.t.totalWon)} received`);
+    } else if (owed > 0) {
+      api.toast("KENO", `+${api.fmt(owed)} received`);
     }
+    kenoTickets = kenoTickets.filter((t) => !t.done);
+    kenoSave();
+    renderCasino();
   } finally { kenoResolving = false; }
 }
 

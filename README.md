@@ -121,7 +121,7 @@ Pay credits into your XP bar (card at the top of Standings). The first level cos
 
 - **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
 - **Passive dividends**: holdings pay 0.02% of their current value every 10 minutes (each payout rounded to the cent), landing on shared wall-clock boundaries (:00, :10, :20…) for everyone at once, accruing while offline (capped at 48 hours). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.
-- **Keno**: draws every 90 seconds now. Buy multi-game cards — the same picks and bet across up to 50 consecutive draws, paid per draw with a running total, plus a detailed per-game report (your picks with hits highlighted, multiplier, net, and card progress). Catch-up after time away resolves the whole backlog in one batch: one settle transaction, one toast, no lag spiral.
+- **Keno**: draws every 90 seconds now. Buy multi-game cards — the same picks and bet across up to 50 consecutive draws, paid per draw with a running total, plus a detailed per-game report (your picks with hits highlighted, multiplier, net, and card progress). Coming back after time away resolves all missed games in one batched payout with a single notification. Catch-up after time away resolves the whole backlog in one batch: one settle transaction, one toast, no lag spiral.
 - **Admin Danger Zone**: per-system resets (chat, predictions, Powerball, transfer log, game counters, players back to ₡1,000) and a RESET EVERYTHING button, each requiring typed confirmation. Requires the widened admin rules branch.
 
 ## Profile pictures & sending credits

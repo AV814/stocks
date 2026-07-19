@@ -760,7 +760,7 @@ header {
   flex-wrap: wrap;
 }
 #chat-canvas {
-  width: 250px; height: 250px;
+  width: 400px; height: 400px; max-width: min(88vw, 400px); max-height: min(88vw, 400px);
   image-rendering: pixelated; image-rendering: crisp-edges;
   background: #fff; cursor: crosshair; touch-action: none;
   border: 2px solid;

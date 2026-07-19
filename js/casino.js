@@ -12,12 +12,12 @@ let mode = "slots";      // slots | blackjack | roulette | scratch | keno | lott
 
 /* ================= SLOTS =================
    Weighted reels, ~91% RTP:
-   7-7-7 50x · ◆◆◆ 25x · §§§ 12x · ★★★ 8x
-   ¤¤¤ 6x · $$$ 5x · two $ 2x · one $ 0.5x        */
+   7-7-7 50x · ◆◆◆ 25x · ♫♫♫ 12x · ★★★ 8x
+   ✿✿✿ 6x · ❦❦❦ 5x · two ❦ 2x · one ❦ 0.5x        */
 
 const SYMBOLS = [
-  { s: "$", w: 30 }, { s: "¤", w: 20 }, { s: "★", w: 18 },
-  { s: "§", w: 14 }, { s: "◆", w: 10 }, { s: "7", w: 8 }
+  { s: "❦", w: 30 }, { s: "✿", w: 20 }, { s: "★", w: 18 },
+  { s: "♫", w: 14 }, { s: "◆", w: 10 }, { s: "7", w: 8 }
 ];
 const REEL_TOTAL = SYMBOLS.reduce((a, x) => a + x.w, 0);
 
@@ -32,13 +32,13 @@ function slotPayout(reels, bet) {
     const mult = { "7": 50, "◆": 25, "§": 12, "★": 8, "¤": 6, "$": 5 }[a] || 0;
     return { mult, label: `Triple ${a}` };
   }
-  const cherries = reels.filter((s) => s === "$").length;
+  const cherries = reels.filter((s) => s === "❦").length;
   if (cherries === 2) return { mult: 2, label: "Two cherries" };
   if (cherries === 1) return { mult: 0.5, label: "One cherry" };
   return { mult: 0, label: null };
 }
 
-const slots = { reels: ["$", "¤", "★"], spinning: false, lastResult: null, bet: 10 };
+const slots = { reels: ["❦", "✿", "★"], spinning: false, lastResult: null, bet: 10 };
 const SLOT_KEY = "vapor-slots-pending";
 let slotsRecovering = false;
 function recoverSlots() {
@@ -114,8 +114,8 @@ const SCRATCH_TIERS = [
   { id: "heist",   name: "Diamond Heist", price: 250, hue: "#7ec8e3" }
 ];
 const SCRATCH_LADDER = [[1, 0.12], [2, 0.06], [5, 0.024], [20, 0.006], [100, 0.0012], [1000, 0.00012]];
-const PRIZE_SYM = { 1: "♣", 2: "$", 5: "§", 20: "◆", 100: "↑", 1000: "♛" };
-const DUD_SYMS = ["~", "%", "#", "!", "↓", "?"];
+const PRIZE_SYM = { 1: "♣", 2: "$", 5: "♫", 20: "◆", 100: "↟", 1000: "♛" };
+const DUD_SYMS = ["~", "%", "#", "!", "↡", "?"];
 
 let scratch = null; // { tier, grid, mult, prize, winSym, revealed:Set, done }
 
@@ -839,8 +839,8 @@ function renderCasino() {
           : "Place a bet and spin."}
       </div>
       <div class="paytable">
-        <div>777 50x</div><div>◆◆◆ 25x</div><div>§§§ 12x</div><div>★★★ 8x</div>
-        <div>¤¤¤ 6x</div><div>$$$ 5x</div><div>$$ 2x</div><div>$ 0.5x</div>
+        <div>777 50x</div><div>◆◆◆ 25x</div><div>♫♫♫ 12x</div><div>★★★ 8x</div>
+        <div>✿✿✿ 6x</div><div>❦❦❦ 5x</div><div>❦❦ 2x</div><div>❦ 0.5x</div>
       </div>
     </div>`;
 

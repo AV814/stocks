@@ -104,7 +104,7 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 - **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
 - **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
-- **Intrusion** — a typing breach: command strings appear and you must type each one exactly before a draining timer empties. Each cleared command banks credits and refunds a little time; one wrong key or a timeout ends the run, and the pace ramps with your streak. Green-terminal styling like Hack, but a reflex/typing job.
+- **Intrusion** — a typing breach with escalating lines: line 1 is one word for ₡1, and every cleared line adds a word and doubles the pay (₡2, ₡4… capping at 7 words / ₡64 a line). Generous per-line timers scale with word count; one wrong key or a timeout ends the run and pays out everything banked.
 - **Pipes** — a BioShock-style hack: drag tiles onto each other to swap them (or tap-tap on mobile) and route the flow from inlet to outlet — no rotation, just like the original, and no four-way pieces. Every board is dealt solvable: a hidden solution path is generated first and its pieces shuffled across the grid for you to find. Fluid starts after an 8-second grace, advances every 1.5s, locks pipes it fills, and bursts on any unconnected pipe. ₡60 + speed bonus up to ₡30.
 - **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
 
@@ -113,7 +113,7 @@ Work plays are counted in the same global and per-player stat counters as casino
 
 ## Recent additions
 
-- **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: $ ¤ § ★ ◆ 7; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.
+- **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: ❦ ✿ ♫ ★ ◆ 7 — floral-heart cherries, blossom, bell-note; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.
 
 - **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
 - **Passive dividends**: holdings pay 0.02% of their current value every 10 minutes (each payout rounded to the cent), landing on shared wall-clock boundaries (:00, :10, :20…) for everyone at once, accruing while offline (capped at 48 hours). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.

@@ -190,6 +190,8 @@ onAuthStateChanged(auth, (user) => {
     }
     myDoc = snap.data();
     renderCash();
+    if (view === "work" && !work.busy()) work.renderWork();   // cap bars update the moment a payout lands
+    else if (view === "portfolio") render();
   });
   unsubUsers = onSnapshot(collection(db, "users"), (qs) => {
     allUsers = qs.docs.map((d) => ({ id: d.id, ...d.data() }));

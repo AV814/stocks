@@ -26,6 +26,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---- wages: credit with a daily cap, one transaction ---- */
+let workLocal = null;   // freshest work{} we know of, ahead of the doc snapshot
 async function payWork(game, amount, what) {
   amount = Math.round(amount * 100) / 100;
   if (amount <= 0 || !api.me()) return 0;
@@ -42,6 +43,7 @@ async function payWork(game, amount, what) {
       capped = paid < amount;
       w[game] = earned + paid;
       tx.update(ref, { cash: Math.round(((u.cash || 0) + paid) * 100) / 100, work: w });
+      workLocal = w;
     });
     if (paid > 0) api.toast("SHIFT PAID", `${api.fmt(paid)} for ${what}${capped ? " (daily cap reached)" : ""}`);
     else api.toast("OFF THE CLOCK", `Daily cap reached for this job — resets midnight ET.`);
@@ -54,7 +56,9 @@ async function payWork(game, amount, what) {
 }
 function earnedToday(game) {
   const w = api.myDoc()?.work;
-  return (w && w.day === workDay()) ? (w[game] || 0) : 0;
+  const fromDoc = (w && w.day === workDay()) ? (w[game] || 0) : 0;
+  const fromLocal = (workLocal && workLocal.day === workDay()) ? (workLocal[game] || 0) : 0;
+  return Math.max(fromDoc, fromLocal);
 }
 const capLine = (game) => `<div class="work-cap">Today: ${api.fmt(earnedToday(game))} / ${api.fmt(DAY_CAP)} earned</div>`;
 
@@ -147,11 +151,11 @@ function msHtml() {
    15x15, ₡2 a pellet, paid when you crash. Arrows/WASD or the
    on-screen pad. Speeds up as you grow. */
 
-const SN = 15, SNAKE_CELL = 22;
+const SN = 15, SNAKE_CELL = 33;   // 50% bigger board
 let snake = null;  // { body, dir, nextDir, food, score, dead, iv }
 function snStart() {
   snStop();
-  snake = { body: [112, 111, 110], dir: 1, queue: [], food: null, score: 0, dead: false, iv: null };
+  snake = { body: [112, 111, 110], dir: 1, queue: [], food: null, score: 0, dead: false, iv: null, waiting: true };
   snFood();
   snake.iv = setInterval(snTick, snSpeed());
   renderWork();
@@ -168,12 +172,20 @@ function snFood() {
 }
 function snTurn(d) {  // 0 up, 1 right, 2 down, 3 left
   if (!snake || snake.dead) return;
+  if (snake.waiting) {
+    if ((d + 2) % 4 === snake.dir) return;   // can't start by reversing into yourself
+    snake.waiting = false;
+    if (d !== snake.dir) snake.queue.push(d);
+    const msg = document.querySelector("#sn-msg");
+    if (msg) msg.textContent = "Go!";
+    return;
+  }
   // queue up to 3 turns; each must not reverse the one before it
   const last = snake.queue.length ? snake.queue[snake.queue.length - 1] : snake.dir;
   if (d !== last && (d + 2) % 4 !== last && snake.queue.length < 3) snake.queue.push(d);
 }
 function snTick() {
-  if (!snake || snake.dead) return;
+  if (!snake || snake.dead || snake.waiting) return;
   if (snake.queue.length) snake.dir = snake.queue.shift();
   const head = snake.body[0];
   const x = head % SN, y = Math.floor(head / SN);
@@ -210,9 +222,8 @@ function snDraw() {
   ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = "#c4b550";
   const fx = snake.food % SN, fy = Math.floor(snake.food / SN);
-  ctx.beginPath();
-  ctx.arc(fx * SNAKE_CELL + SNAKE_CELL / 2, fy * SNAKE_CELL + SNAKE_CELL / 2, SNAKE_CELL / 3, 0, 7);
-  ctx.fill();
+  const fs = SNAKE_CELL - 10;                        // apple: square, a bit smaller than the snake
+  ctx.fillRect(fx * SNAKE_CELL + (SNAKE_CELL - fs) / 2, fy * SNAKE_CELL + (SNAKE_CELL - fs) / 2, fs, fs);
   snake.body.forEach((c, i) => {
     ctx.fillStyle = i === 0 ? "#a8c45c" : "#7a9152";
     ctx.fillRect((c % SN) * SNAKE_CELL + 1, Math.floor(c / SN) * SNAKE_CELL + 1, SNAKE_CELL - 2, SNAKE_CELL - 2);
@@ -231,7 +242,7 @@ function snHtml() {
       <button data-sd="0">▲</button>
       <div><button data-sd="3">◀</button><button data-sd="2">▼</button><button data-sd="1">▶</button></div>
     </div>
-    <div class="casino-msg">${snake?.dead ? `Crashed at ${snake.score} pellets.` : active ? "Arrows / WASD / pad." : "Eat pellets, don't eat walls or yourself."}</div>`;
+    <div class="casino-msg" id="sn-msg">${snake?.dead ? `Crashed at ${snake.score} pellets.` : snake?.waiting ? "Press a direction to begin." : active ? "Arrows / WASD / pad." : "Eat pellets, don't eat walls or yourself."}</div>`;
 }
 document.addEventListener("keydown", (e) => {
   if (mode !== "snake" || !snake || snake.dead) return;
@@ -538,29 +549,39 @@ function ppHtml() {
    longer your streak, the faster they come. Green-on-black like
    the password cracker, but it's a reflex/typing job. */
 
-const INTRUSION_CMDS = ("sudo override","decrypt node","bypass ice","route packet","spoof mac",
-  "flush cache","inject payload","trace uplink","mount daemon","purge logs","crack hash","open socket",
-  "kill firewall","ping subnet","dump kernel","forge token","tunnel vpn","scan ports","patch exploit",
-  "sever trace","cloak signal","breach vault","reroute grid","disable alarm","exfil data","ghost proxy",
-  "unlock sector","drain buffer","hijack thread","null route").split(",");
+const INTRUSION_WORDS = ("sudo,override,decrypt,node,bypass,ice,route,packet,spoof,mac," +
+  "flush,cache,inject,payload,trace,uplink,mount,daemon,purge,logs,crack,hash,open,socket," +
+  "kill,firewall,ping,subnet,dump,kernel,forge,token,tunnel,vpn,scan,ports,patch,exploit," +
+  "sever,cloak,signal,breach,vault,reroute,grid,disable,alarm,ghost,proxy,unlock,sector," +
+  "drain,buffer,hijack,thread,null,shell,root,binary").split(",");
+const INTRUSION_MAX_WORDS = 7;
+const inStageWords = (cleared) => Math.min(INTRUSION_MAX_WORDS, 1 + cleared);
+const inStageReward = (cleared) => Math.pow(2, Math.min(cleared, INTRUSION_MAX_WORDS - 1));  // 1,2,4…64, capped
+const inStageTime = (words) => 3000 + words * 1700;   // generous: ~4.7s for 1 word, ~14.9s for 7
 
 let intr = null;  // { active, target, typed, score, streak, deadline, dur, iv, over }
 
 function inNew() {
   inStop();
-  intr = { active: false, over: false, target: "", typed: "", score: 0, streak: 0, deadline: 0, dur: 4200, iv: null };
+  intr = { active: false, over: false, target: "", typed: "", score: 0, streak: 0, deadline: 0, dur: 4700, iv: null };
   renderWork();
 }
 function inStop() { if (intr?.iv) { clearInterval(intr.iv); intr.iv = null; } }
 function inNext() {
-  intr.target = INTRUSION_CMDS[Math.floor(Math.random() * INTRUSION_CMDS.length)];
+  const words = inStageWords(intr.streak);
+  const pick = [];
+  while (pick.length < words) {
+    const w = INTRUSION_WORDS[Math.floor(Math.random() * INTRUSION_WORDS.length)];
+    if (!pick.includes(w)) pick.push(w);
+  }
+  intr.target = pick.join(" ");
   intr.typed = "";
-  intr.dur = Math.max(1800, 4200 - intr.streak * 120);   // ramps up
+  intr.dur = inStageTime(words);
   intr.deadline = Date.now() + intr.dur;
 }
 function inStart() {
   inStop();
-  intr = { active: true, over: false, target: "", typed: "", score: 0, streak: 0, dur: 4200, iv: null };
+  intr = { active: true, over: false, target: "", typed: "", score: 0, streak: 0, dur: 4700, iv: null };
   inNext();
   intr.iv = setInterval(() => {
     if (!intr.active) return;
@@ -584,9 +605,9 @@ function inType(ch) {
   if (intr.target.startsWith(next)) {
     intr.typed = next;
     if (next === intr.target) {
+      const reward = inStageReward(intr.streak);            // ₡1 doubling per line, capped at 7 words / ₡64
       intr.streak++;
-      intr.score += 3 + Math.floor(intr.streak / 3);        // escalating reward
-      intr.deadline += 700;                                  // small time refund
+      intr.score += reward;
       inNext();
     }
     inPaint();
@@ -603,8 +624,7 @@ function inPaint() {
     `<span class="${i < intr.typed.length ? "hit" : ""}">${c === " " ? "&nbsp;" : esc(c)}</span>`).join("");
   const sc = document.querySelector("#in-score");
   if (sc) sc.textContent = api.fmt(intr.score);
-  const st = document.querySelector("#in-streak");
-  if (st) st.textContent = intr.streak;
+
 }
 function inHtml() {
   if (!intr) inNew();
@@ -613,7 +633,7 @@ function inHtml() {
     <div class="hk-term in-term">
       <div class="in-hud">
         <span>BANKED: <b id="in-score">${api.fmt(intr.score)}</b></span>
-        <span>STREAK: <b id="in-streak">${intr.streak}</b></span>
+        <span>LINE ${intr.streak + 1} · ${inStageWords(intr.streak)} word${inStageWords(intr.streak) === 1 ? "" : "s"} · pays <b>${api.fmt(inStageReward(intr.streak))}</b></span>
       </div>
       ${intr.active ? `
         <div class="in-timer"><div id="in-bar" class="in-bar"></div></div>
@@ -625,8 +645,9 @@ function inHtml() {
         <div class="in-over">>>> ${intr.streak} COMMANDS CLEARED · ${api.fmt(intr.score)} BANKED</div>
       ` : `
         <div class="in-idle">>>> LW INDUSTRIES INTRUSION SUITE</div>
-        <div class="in-idle">>>> TYPE EACH COMMAND BEFORE THE BAR EMPTIES</div>
-        <div class="in-idle">>>> WRONG KEY = ALARM. SPEED RAMPS WITH YOUR STREAK.</div>
+        <div class="in-idle">>>> TYPE EACH LINE BEFORE THE BAR EMPTIES</div>
+        <div class="in-idle">>>> ONE MORE WORD PER LINE, DOUBLE THE PAY — ₡1 UP TO ₡64 AT 7 WORDS</div>
+        <div class="in-idle">>>> WRONG KEY = ALARM.</div>
       `}
     </div>
     <div class="casino-controls" style="margin-top:12px">
@@ -734,9 +755,13 @@ export function renderWork() {
 
 export function initWork(apiIn) {
   api = apiIn;
-  return { renderWork, stop: () => {
-    snStop();
-    inStop();
-    if (pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
-  } };
+  return {
+    renderWork,
+    busy: () => !!((snake && !snake.dead && !snake.waiting && snake.iv) || (intr && intr.active)),
+    stop: () => {
+      snStop();
+      inStop();
+      if (pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
+    }
+  };
 }

@@ -705,10 +705,10 @@ async function checkPassiveDividends() {
       });
     });
     if (total > 0) {
-      if (n >= 2) toast("WHILE YOU WERE AWAY", `Your portfolio quietly paid ${fmt(total)} in dividends (${n} payouts${n === PASSIVE_CAP ? ", capped at 48h" : ""}).`);
-      else toast("DIVIDEND", `+${fmt(total)} from your holdings.`);
+      if (n >= 2) toast("WHILE YOU WERE AWAY", `Your portfolio paid ${fmt(total)} in dividends (${n} payouts${n === PASSIVE_CAP ? ", capped at 48 hours" : ""}).`);
+      else toast("DIVIDEND", `+${fmt(total)} added`);
     }
-  } catch (e) { console.error("passive dividend failed", e); }
+  } catch (e) { console.error("dividends failed", e); }
   finally { passiveBusy = false; }
 }
 

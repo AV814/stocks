@@ -795,7 +795,7 @@ async function investXp() {
       });
       tx._ups = ups; tx._level = level;
     });
-    toast("XP INVESTED", `${fmt(amt)} into the grind.`);
+    toast("XP INVESTED", `${fmt(amt)} added`);
   } catch (e) { alert(e.message); }
 }
 function levelPanel() {

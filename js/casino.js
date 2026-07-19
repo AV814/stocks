@@ -650,6 +650,12 @@ async function kenoResolveDue() {
   } finally { kenoResolving = false; }
 }
 
+function kenoCountdown() {
+  const ms = (kenoRound() + 1) * KENO_MS - Date.now();
+  const m = Math.floor(ms / 60000), sec = Math.max(0, Math.floor((ms % 60000) / 1000));
+  return m > 0 ? `in ${m}m ${sec}s` : `in ${sec}s`;
+}
+
 setInterval(() => {
   if (!api) return;
   kenoResolveDue();

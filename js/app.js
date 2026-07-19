@@ -200,6 +200,26 @@ onAuthStateChanged(auth, (user) => {
   subscribeMarket();
 });
 
+/* ---- stock abbreviations + news indicators ----
+   Edit STOCK_ABBR to control how every stock is shown across the
+   site (market list, stock page, portfolio, tape, news). Any ticker
+   not listed here falls back to itself. News is rendered as compact
+   indicators instead of headlines:
+     ABBR ↑    good news        ABBR ↓    bad news
+     ABBR ↑↑!  breaking good    ABBR ↓↓!  breaking bad
+   "Breaking" means the event's price impact is at least NEWS_BREAKING. */
+const STOCK_ABBR = {
+  // "TICKER": "ABBR",
+};
+const abbr = (tk) => STOCK_ABBR[tk] || tk;
+const NEWS_BREAKING = 0.15;
+function newsIndicator(n) {
+  const up = n.impact >= 0;
+  const big = Math.abs(n.impact) >= NEWS_BREAKING;
+  const arrow = up ? "↑" : "↓";
+  return `${big ? arrow + arrow + "!" : arrow}`;
+}
+
 /* ================= MARKET STATE ================= */
 function subscribeMarket() {
   onSnapshot(doc(db, "market", "state"), async (snap) => {
@@ -399,8 +419,8 @@ function renderMarket() {
     const c = sparkFor(st);
     const chg = c.p24 ? p / c.p24 - 1 : 0;
     return `<div class="mkt-row" data-tk="${st.ticker}">
-      <div class="tk">${st.ticker}</div>
-      <div class="co">${st.name} · ${st.sector}</div>
+      <div class="tk">${abbr(st.ticker)}</div>
+      <div class="co">${st.sector}</div>
       <div class="px">${fmt(p)}</div>
       <div class="chg ${chg >= 0 ? "up" : "down"}">${pct(chg)}</div>
       <canvas class="spark" width="110" height="30" data-seed="${st.seed}"></canvas>
@@ -456,8 +476,8 @@ function renderStock() {
   el.innerHTML = `
     <button class="ghost back">← Exchange</button>
     <div class="stock-head">
-      <div><h2>${st.ticker} ${st.dead ? '<span class="dead-tag">DELISTED</span>' : ""}</h2>
-        <div class="sector">${st.name} · ${st.sector}</div></div>
+      <div><h2>${abbr(st.ticker)} ${st.dead ? '<span class="dead-tag">DELISTED</span>' : ""}</h2>
+        <div class="sector">${st.sector}</div></div>
       <div><span class="big-px">${p === null ? "₡0.00" : fmt(p)}</span>
         <span class="big-chg ${chg >= 0 ? "up" : "down"}">${p === null ? "" : pct(chg) + " today"}</span></div>
     </div>
@@ -542,8 +562,8 @@ function renderPortfolio() {
     const dead = !st || st.dead;
     const p = dead ? 0 : engine.price(st, now) || 0;
     return `<div class="mkt-row" data-tk="${dead ? "" : tk}">
-      <div class="tk">${tk}${dead ? '<span class="dead-tag">DELISTED</span>' : ""}</div>
-      <div class="co">${st ? st.name : ""} · ${sh} share${sh === 1 ? "" : "s"}</div>
+      <div class="tk">${abbr(tk)}${dead ? '<span class="dead-tag">DELISTED</span>' : ""}</div>
+      <div class="co">${sh} share${sh === 1 ? "" : "s"}</div>
       <div class="px">${fmt(p)}</div>
       <div class="chg">${fmt(sh * p)}</div><div></div>
     </div>`;
@@ -611,8 +631,8 @@ function renderNews() {
   $("#view-news").innerHTML = `<h3 class="sec">The LW Journal</h3>` + items.map((n) => `
     <div class="news-item ${n.bucket}">
       <div class="news-time">${new Date(n.time).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-      <div class="news-tk">${n.ticker}</div>
-      <div class="news-text">${n.text}</div>
+      <div class="news-tk">${abbr(n.ticker)}</div>
+      <div class="news-text news-ind ${n.impact >= 0 ? "up" : "down"}">${newsIndicator(n)}</div>
     </div>`).join("");
 }
 
@@ -890,9 +910,9 @@ function renderTape() {
     if (p === null) return "";
     const c = sparkFor(st);
     const chg = c.p24 ? p / c.p24 - 1 : 0;
-    return `<span class="tape-item"><b>${st.ticker}</b> ${fmt(p)} <span class="${chg >= 0 ? "up" : "down"}">${pct(chg)}</span></span>`;
+    return `<span class="tape-item"><b>${abbr(st.ticker)}</b> ${fmt(p)} <span class="${chg >= 0 ? "up" : "down"}">${pct(chg)}</span></span>`;
   });
-  const breaking = news.map((n) => `<span class="tape-item breaking">◆ ${n.text}</span>`);
+  const breaking = news.map((n) => `<span class="tape-item breaking">◆ ${abbr(n.ticker)} <span class="${n.impact >= 0 ? "up" : "down"}">${newsIndicator(n)}</span></span>`);
   const half = [...items.slice(0, 7), ...breaking.slice(0, 2), ...items.slice(7)].join("");
   $("#tape").innerHTML = half + half; // duplicated for seamless loop
 }
@@ -910,7 +930,7 @@ function checkNewsAlerts() {
   const items = currentNews().filter((n) => n.time > lastToastCheck && n.time <= Date.now());
   for (const n of items.slice(0, 3)) {
     if (n.bucket === "flat" || n.bucket === "ipo") continue;
-    toast("MARKET WIRE", n.text);
+    toast("MARKET WIRE", `${abbr(n.ticker)} ${newsIndicator(n)}`);
   }
   if (items.length) lastToastCheck = Date.now();
   const newest = currentNews()[0];

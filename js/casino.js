@@ -43,7 +43,7 @@ function spinSymbol() {
 function slotPayout(reels, bet) {
   const [a, b, c] = reels;
   if (a === b && b === c) {
-    const mult = { "7": 50, "◆": 25, "§": 12, "★": 8, "¤": 6, "$": 5 }[a] || 0;
+    const mult = { "7": 50, "◆": 25, "♫": 12, "★": 8, "✿": 6, "❦": 5 }[a] || 0;
     return { mult, label: `Triple ${a}` };
   }
   const cherries = reels.filter((s) => s === "❦").length;

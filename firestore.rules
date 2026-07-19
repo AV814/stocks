@@ -56,6 +56,7 @@ service cloud.firestore {
       match /trades/{tradeId} {
         allow read: if request.auth != null;
         allow create: if request.auth != null && request.auth.uid == uid;
+        allow delete: if isAdmin();
       }
     }
 
@@ -65,6 +66,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.from == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // VaporBall lottery. The weekly doc (pot / sales / settlement) is
@@ -73,6 +75,7 @@ service cloud.firestore {
     match /lottery/{weekId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null;
+      allow delete: if isAdmin();
 
       match /tickets/{tid} {
         allow read: if request.auth != null;
@@ -80,6 +83,7 @@ service cloud.firestore {
           && request.resource.data.uid == request.auth.uid;
         allow update: if request.auth != null
           && resource.data.uid == request.auth.uid;
+        allow delete: if isAdmin();
       }
     }
 
@@ -116,6 +120,7 @@ service cloud.firestore {
       match /bets/{uid} {
         allow read: if request.auth != null;
         allow create, update: if request.auth != null && request.auth.uid == uid;
+        allow delete: if isAdmin();
       }
     }
   }

@@ -498,15 +498,17 @@ const RESETS = [
       await deleteDoc(doc(api.db, "market", "kenoStats")).catch(() => {});
       return "global counters zeroed";
     } },
-  { id: "players", label: "Players (cash 1000, wipe holdings/stats/caps)", run: async () => {
+  { id: "players", label: "Players (cash 1000, wipe holdings/stats/trades/caps)", run: async () => {
       const qs = await getDocs(collection(api.db, "users"));
       for (const d of qs.docs) {
         await updateDoc(d.ref, {
           cash: 1000, holdings: {}, gameStats: {}, work: {},
           dailyClaim: null, lastDivAt: null, lastPassiveDivAt: null
         });
+        const trades = await getDocs(collection(api.db, "users", d.id, "trades"));
+        for (const t of trades.docs) await deleteDoc(t.ref);
       }
-      return `${qs.size} players reset to ₡1,000`;
+      return `${qs.size} players reset to ₡1,000 (trade logs cleared)`;
     } }
 ];
 async function runReset(ids, label) {

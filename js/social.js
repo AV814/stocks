@@ -42,13 +42,13 @@ function avatarHtml(u, size = 28) {
 
 // Center-crop to a square, scale to AVATAR_PX, compress until it fits.
 async function fileToAvatar(file) {
-  if (!file.type.startsWith("image/")) throw new Error("That's not an image.");
+  if (!file.type.startsWith("image/")) throw new Error("Not an image file");
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((res, rej) => {
       const i = new Image();
       i.onload = () => res(i);
-      i.onerror = () => rej(new Error("Couldn't read that image."));
+      i.onerror = () => rej(new Error("Cannot read image"));
       i.src = url;
     });
     const side = Math.min(img.naturalWidth, img.naturalHeight);
@@ -60,7 +60,7 @@ async function fileToAvatar(file) {
       const data = cv.toDataURL("image/jpeg", q);
       if (data.length <= AVATAR_MAX_BYTES) return data;
     }
-    throw new Error("Image compresses poorly — try a simpler picture.");
+    throw new Error("Image cannot compress well");
   } finally { URL.revokeObjectURL(url); }
 }
 
@@ -70,7 +70,7 @@ async function uploadAvatar(file) {
   try {
     const data = await fileToAvatar(file);
     await updateDoc(doc(api.db, "users", uid), { avatar: data });
-    api.toast("Looking sharp", "Profile picture updated.");
+    api.toast("Profile picture updated.");
   } catch (e) { alert(e.message); }
 }
 
@@ -80,7 +80,7 @@ async function sendMoney(toUid, toName, amount) {
   const uid = api.me()?.uid;
   amount = Math.round(Number(amount) * 100) / 100;
   if (!(amount > 0)) { alert("Enter an amount above zero."); return false; }
-  if (toUid === uid) { alert("Sending money to yourself is just moving your wallet to your other pocket."); return false; }
+  if (toUid === uid) { alert("You cannot send cash to yourself"); return false; }
   try {
     await runTransaction(api.db, async (tx) => {
       const fromRef = doc(api.db, "users", uid);
@@ -88,7 +88,7 @@ async function sendMoney(toUid, toName, amount) {
       const [fromSnap, toSnap] = [await tx.get(fromRef), await tx.get(toRef)];
       if (!toSnap.exists()) throw new Error("That player no longer exists.");
       const from = fromSnap.data();
-      if ((from.cash || 0) < amount) throw new Error("Not enough credits.");
+      if ((from.cash || 0) < amount) throw new Error("Not enough cash.");
       tx.update(fromRef, { cash: Math.round((from.cash - amount) * 100) / 100 });
       tx.update(toRef, { cash: Math.round(((toSnap.data().cash || 0) + amount) * 100) / 100 });
     });
@@ -113,12 +113,12 @@ function subscribeTransfers() {
         if (ch.type !== "added") return;
         const t = ch.doc.data();
         if (t.at <= watchStart) return;
-        if (t.kind === "liquidation") api.toast("POSITION LIQUIDATED", `THE HOUSE force-sold your holdings for ${api.fmt(t.amount)}`);
-        else if (t.amount >= 0) api.toast("CREDITS RECEIVED", `${t.fromName} sent you ${api.fmt(t.amount)}`);
-        else api.toast("HOUSE ADJUSTMENT", `${t.fromName} removed ${api.fmt(-t.amount)} from your account`);
+        if (t.kind === "liquidation") api.toast("Liqiudated", `THE HOUSE force-sold your holdings for ${api.fmt(t.amount)}`);
+        else if (t.amount >= 0) api.toast("Cash Received", `${t.fromName} sent you ${api.fmt(t.amount)}`);
+        else api.toast("Admin", `${t.fromName} removed ${api.fmt(-t.amount)} from your account`);
       });
     },
-    (e) => console.error("transfer watch failed", e)
+    (e) => console.error("transfer failed", e)
   );
 }
 function unsubscribeTransfers() {

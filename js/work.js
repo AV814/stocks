@@ -45,9 +45,9 @@ async function payWork(game, amount, what) {
       tx.update(ref, { cash: Math.round(((u.cash || 0) + paid) * 100) / 100, work: w });
       workLocal = w;
     });
-    const JOB = { mines: "MINESWEEPER", snake: "SNAKE", hack: "HACK", pipes: "PIPES", intrusion: "INTRUSION" };
+    const JOB = { mines: "MINESWEEPER", snake: "SNAKE", hack: "HACK", pipes: "PIPES", intrusion: "TYPING" };
     if (paid > 0) api.toast(JOB[game] || "WORK", `+${api.fmt(paid)} received${capped ? " (daily cap reached)" : ""}`);
-    else api.toast("OFF THE CLOCK", `Daily cap reached for this job — resets midnight ET.`);
+    else api.toast("Limit Hit", `Daily max profit already reached`);
   } catch (e) { console.error("payWork failed", e); }
   // bump play counters (global + personal), fire-and-forget
   setDoc(doc(api.db, "market", "casinoStats"), { [game]: increment(1) }, { merge: true }).catch(() => {});
@@ -336,7 +336,7 @@ function hkHtml() {
    starts after a grace period, advances one tile at a time, and
    locks every pipe it fills. Directions: U=1 R=2 D=4 L=8. */
 
-const PIPE_W = 12, PIPE_H = 12;
+const PIPE_W = 9, PIPE_H = 9;
 const PIPE_GRACE = 12000, PIPE_FLOW = 1500, PIPE_FAST = 220;
 const PIPE_BLOCKED = 26;
 const oppDir = (d) => ((d << 2) | (d >> 2)) & 15;

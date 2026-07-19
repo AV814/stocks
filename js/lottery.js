@@ -191,8 +191,8 @@ async function claimWeek(w) {
       if (isJackpot(tDoc.data(), draw)) jackpot = true;
     }
   }
-  if (jackpot) api.toast("✱ JACKPOT ✱", `You hit the LWBall! ${api.fmt(won)} claimed.`);
-  else if (won > 0) api.toast("LWBALL WINNER", `Last night’s draw paid you ${api.fmt(won)}.`);
+  if (jackpot) api.toast("LWBALL JACKPOT", `+${api.fmt(won)} received`);
+  else if (won > 0) api.toast("LWBALL", `+${api.fmt(won)} received`);
 }
 
 async function loadMine() {

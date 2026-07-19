@@ -161,8 +161,8 @@ async function autoClaim() {
         if (credited > 0) tx.update(userRef, { cash: (uSnap.data().cash || 0) + credited });
         tx.set(betRef, { ...b, settled: true, payout: credited });
       });
-      if (label === "won") api.toast("PREDICTION PAID", `"${p.question}" — you won ${api.fmt(credited)}!`);
-      else if (label === "refunded") api.toast("Bet refunded", `"${p.question}" was voided — ${api.fmt(credited)} returned.`);
+      if (label === "won") api.toast("PREDICTIONS", `+${api.fmt(credited)} received`);
+      else if (label === "refunded") api.toast("PREDICTIONS", `+${api.fmt(credited)} received`);
     } catch (e) { console.error("claim failed", e); }
     claiming.delete(p.id);
   }

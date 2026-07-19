@@ -60,7 +60,7 @@ async function claimDaily() {
       if (u.dailyClaim === bonusDay()) throw new Error("Already claimed today. Greed is good, but patience pays.");
       tx.update(ref, { cash: Math.round(((u.cash || 0) + BONUS_AMT) * 100) / 100, dailyClaim: bonusDay() });
     });
-    toast("DAILY BONUS", `${fmt(BONUS_AMT)} claimed. Back tomorrow after midnight ET.`);
+    toast("DAILY BONUS", `+${fmt(BONUS_AMT)} received`);
   } catch (e) { alert(e.message); }
 }
 $("#bonus-btn").addEventListener("click", claimDaily);
@@ -598,7 +598,7 @@ async function sellAll() {
         ticker: l.tk, shares: l.sh, side: "sell", price: l.px, at: serverTimestamp()
       }).catch(() => {});
     });
-    toast("Liquidated", `Everything sold for ${fmt(total)}.`);
+    toast("PORTFOLIO SOLD", `+${fmt(total)} received`);
   } catch (e) { alert(e.message); }
 }
 
@@ -705,8 +705,7 @@ async function checkPassiveDividends() {
       });
     });
     if (total > 0) {
-      if (n >= 2) toast("WHILE YOU WERE AWAY", `Your portfolio paid ${fmt(total)} in dividends (${n} payouts${n === PASSIVE_CAP ? ", capped at 48 hours" : ""}).`);
-      else toast("DIVIDEND", `+${fmt(total)} added`);
+      toast("DIVIDENDS", `+${fmt(total)} received`);
     }
   } catch (e) { console.error("dividends failed", e); }
   finally { passiveBusy = false; }

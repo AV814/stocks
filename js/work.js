@@ -45,7 +45,8 @@ async function payWork(game, amount, what) {
       tx.update(ref, { cash: Math.round(((u.cash || 0) + paid) * 100) / 100, work: w });
       workLocal = w;
     });
-    if (paid > 0) api.toast("SHIFT PAID", `${api.fmt(paid)} for ${what}${capped ? " (daily cap reached)" : ""}`);
+    const JOB = { mines: "MINESWEEPER", snake: "SNAKE", hack: "HACK", pipes: "PIPES", intrusion: "INTRUSION" };
+    if (paid > 0) api.toast(JOB[game] || "WORK", `+${api.fmt(paid)} received${capped ? " (daily cap reached)" : ""}`);
     else api.toast("OFF THE CLOCK", `Daily cap reached for this job — resets midnight ET.`);
   } catch (e) { console.error("payWork failed", e); }
   // bump play counters (global + personal), fire-and-forget

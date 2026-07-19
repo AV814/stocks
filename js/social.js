@@ -113,8 +113,8 @@ function subscribeTransfers() {
         if (ch.type !== "added") return;
         const t = ch.doc.data();
         if (t.at <= watchStart) return;
-        if (t.kind === "liquidation") api.toast("Liqiudated", `THE HOUSE force-sold your holdings for ${api.fmt(t.amount)}`);
-        else if (t.amount >= 0) api.toast("Cash Received", `${t.fromName} sent you ${api.fmt(t.amount)}`);
+        if (t.kind === "liquidation") api.toast("LIQUIDATION", `+${api.fmt(t.amount)} received`);
+        else if (t.amount >= 0) api.toast(`${t.fromName.toUpperCase()}`, `+${api.fmt(t.amount)} received`);
         else api.toast("Admin", `${t.fromName} removed ${api.fmt(-t.amount)} from your account`);
       });
     },

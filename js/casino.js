@@ -63,7 +63,7 @@ function recoverSlots() {
   if (!p || !(p.win > 0)) return;
   slotsRecovering = true;
   api.settle(p.win, 0)
-    .then(() => { localStorage.removeItem(SLOT_KEY); api.toast("SLOTS", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .then(() => localStorage.removeItem(SLOT_KEY))
     .catch(() => {})
     .finally(() => { slotsRecovering = false; });
 }
@@ -110,7 +110,7 @@ async function doSpin() {
         api.settle(payout, 0)
           .then(() => localStorage.removeItem(SLOT_KEY))
           .catch((e) => console.error("slots payout failed, recovery will retry", e));
-        if (payout >= bet * 5) api.toast("JACKPOT", `${label} pays ${api.fmt(payout)}!`);
+        if (payout >= bet * 5) api.toast("SLOTS", `+${api.fmt(payout)} received`);
       }
       renderCasino();
     }
@@ -189,7 +189,7 @@ async function payScratch() {
     await api.settle(scratch.prize, 0);
     scratch.paid = true;
     saveScratch();
-    if (scratch.mult >= 20) api.toast("SCRATCH JACKPOT", `${scratch.tier.name}: ${scratch.mult}x pays ${api.fmt(scratch.prize)}!`);
+    if (scratch.mult >= 20) api.toast("SCRATCHERS", `+${api.fmt(scratch.prize)} received`);
   } catch (e) {
     console.error("scratch payout failed, will retry", e);
     setTimeout(payScratch, 4000);
@@ -401,7 +401,7 @@ function recoverBlackjack() {
   if (!p || !(p.win > 0)) return;
   bjRecovering = true;
   api.settle(p.win, 0)
-    .then(() => { localStorage.removeItem(BJ_KEY); api.toast("BLACKJACK", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .then(() => localStorage.removeItem(BJ_KEY))
     .catch(() => {})
     .finally(() => { bjRecovering = false; });
 }
@@ -425,7 +425,7 @@ function recoverRoulette() {
   if (!p || !(p.win > 0)) return;
   roulRecovering = true;
   api.settle(p.win, 0)
-    .then(() => { localStorage.removeItem(ROUL_KEY); api.toast("ROULETTE", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .then(() => localStorage.removeItem(ROUL_KEY))
     .catch(() => {})
     .finally(() => { roulRecovering = false; });
 }
@@ -618,10 +618,10 @@ async function kenoResolveDue() {
         game: t.played, games: t.games, totalWon: t.totalWon,
         spent: t.bet * t.games
       };
-      if (mult >= 40) api.toast("KENO", `${hits}/${t.picks.length} hits — ${mult}x pays ${api.fmt(payout)}!`);
+      if (mult >= 40) api.toast("KENO", `+${api.fmt(payout)} received`);
       if (t.played >= t.games) {
         t.done = true;
-        if (t.games > 1) api.toast("KENO CARD COMPLETE", `${t.games} games: spent ${api.fmt(t.bet * t.games)}, won ${api.fmt(t.totalWon)}.`);
+        if (t.games > 1 && t.totalWon > 0) api.toast("KENO CARD", `+${api.fmt(t.totalWon)} received`);
         break;
       }
     }
@@ -773,7 +773,7 @@ function recoverPoker() {
   if (!p || !(p.win > 0)) return;
   pkRecovering = true;
   api.settle(p.win, 0)
-    .then(() => { localStorage.removeItem(PK_KEY); api.toast("POKER", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .then(() => localStorage.removeItem(PK_KEY))
     .catch(() => {})
     .finally(() => { pkRecovering = false; });
 }
@@ -807,7 +807,7 @@ async function pkDraw() {
       try { await api.settle(winnings, 0); localStorage.removeItem(PK_KEY); }
       catch (e) { console.error("poker payout failed, recovery will retry", e); }
     }, revealDone);
-    if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `${mine.name}! ${api.fmt(winnings)}`), revealDone);
+    if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `+${api.fmt(winnings)} received`), revealDone);
   } else if (cmp === 0) {
     pk.msg = `Both show ${mine.name}. Ties go to the house. That's the edge.`;
   } else {

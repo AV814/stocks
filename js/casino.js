@@ -1058,11 +1058,11 @@ function renderCasino() {
       <h3 class="sec" style="margin:0">The LW Lounge</h3>
       <div class="casino-tabs">
         <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
-        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
-        <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
         <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratch Tickets</button>
-        <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">Keno</button>
+        <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
+        <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
         <button data-cmode="poker" class="${mode === "poker" ? "active" : ""}">Poker</button>
+        <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">Keno</button>
         <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">Powerball</button>
       </div>
     </div>

@@ -115,6 +115,14 @@ Work plays are counted in the same global and per-player stat counters as casino
 
 A text-adventure roguelike and the game's biggest repeatable money loop. Sign a contract at one of three difficulties (entry ₡50/₡150/₡400, paying ₡160/₡520/₡1,500), buy per-run gear in the shop — weapons, armor, Vitality Smoothies — then fight turn-by-turn through four floors of corporate security with supply crates between fights (cash, potions, attack buffs, or the occasional trap), and take the boss in the penthouse for the payout. Combat is intent-based: every enemy telegraphs its next move, and Block (70% reduction plus a riposte) is the answer to telegraphed slams and charged nukes. Enemies come in archetypes (brutes, twins, guards, leeches, bombers), bosses enrage at half health, weapons carry traits (crit, armor-pierce, stun, bleed), items include Health Potions, Adrenaline, and EMP Grenades, and Supply Offices offer pick-1-of-3 perk drafts between fights. Death or fleeing forfeits the entry and gear; gear never carries between runs, so every attempt demands fresh investment. Runs persist through reloads, and payouts are crash-safe. Timing note: everything scheduled at "midnight ET" (Powerball draw, daily bonus, work caps) now uses true America/New_York midnight, DST-proof.
 
+
+## Recent additions
+
+- **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
+- **Passive dividends**: holdings pay 1% of their current value every 10 minutes, accruing while offline (capped at 48 hours of accrual). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.
+- **Keno**: draws every 90 seconds now. Buy multi-game cards — the same picks and bet across up to 50 consecutive draws, paid per draw with a running total, plus a detailed per-game report (your picks with hits highlighted, multiplier, net, and card progress).
+- **Admin Danger Zone**: per-system resets (chat, predictions, Powerball, transfer log, game counters, players back to ₡1,000) and a RESET EVERYTHING button, each requiring typed confirmation. Requires the widened admin rules branch.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

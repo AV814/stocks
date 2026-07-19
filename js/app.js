@@ -560,11 +560,52 @@ function renderPortfolio() {
       <div><div class="lbl">Cash</div><div class="val">${fmt(myDoc.cash)}</div></div>
       <div><div class="lbl">All-time</div><div class="val ${gain >= 0 ? "up" : "down"}">${pct(gain)}</div></div>
     </div>
-    <h3 class="sec">Positions</h3>
+    <div class="pf-pos-head">
+      <h3 class="sec" style="margin:0">Positions</h3>
+      ${holdings.length ? `<button class="ghost danger" id="pf-sell-all">Sell everything</button>` : ""}
+    </div>
     ${rows || `<p class="muted">No positions yet. Hit the Exchange tab and buy something reckless.</p>`}`;
   $("#view-portfolio").querySelectorAll(".mkt-row[data-tk]").forEach((r) => {
     if (r.dataset.tk) r.addEventListener("click", () => { openTicker = r.dataset.tk; renderStock(); });
   });
+  $("#pf-sell-all")?.addEventListener("click", sellAll);
+}
+
+async function sellAll() {
+  if (!myDoc || !me) return;
+  const now = Date.now();
+  const lines = Object.entries(myDoc.holdings || {}).map(([tk, sh]) => {
+    const st = findStock(tk);
+    const px = st && !st.dead ? engine.price(st, now) || 0 : 0;
+    return { tk, sh, px, value: sh * px };
+  }).filter((l) => l.sh > 0);
+  if (!lines.length) return;
+  const total = Math.round(lines.reduce((a, l) => a + l.value, 0) * 100) / 100;
+  const summary = lines.map((l) => `${l.sh} ${l.tk} ${l.px ? "@ " + fmt(l.px) : "(delisted, worthless)"}`).join("\n");
+  if (!confirm(`Sell every position at market?\n\n${summary}\n\nProceeds: ${fmt(total)}`)) return;
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const u = snap.data();
+      // re-price the live holdings inside the transaction
+      const proceeds = Object.entries(u.holdings || {}).reduce((a, [tk, sh]) => {
+        const st = findStock(tk);
+        const px = st && !st.dead ? engine.price(st, Date.now()) || 0 : 0;
+        return a + sh * px;
+      }, 0);
+      tx.update(ref, {
+        cash: Math.round(((u.cash || 0) + proceeds) * 100) / 100,
+        holdings: {}
+      });
+    });
+    lines.forEach((l) => {
+      if (l.px > 0) addDoc(collection(db, "users", me.uid, "trades"), {
+        ticker: l.tk, shares: l.sh, side: "sell", price: l.px, at: serverTimestamp()
+      }).catch(() => {});
+    });
+    toast("Liquidated", `Everything sold for ${fmt(total)}.`);
+  } catch (e) { alert(e.message); }
 }
 
 /* ---------- news ---------- */
@@ -609,8 +650,8 @@ function startHeartbeat() {   // (kept name: called from auth flow)
     if (view === "leaderboard" || view === "admin") render();
   }, (e) => console.error("presence read failed (check RTDB rules/URL)", e));
   presenceUnsubs = [unsubConn, unsubStatus];
-  divIv = setInterval(checkDividends, 60000);
-  setTimeout(checkDividends, 4000);   // after market loads
+  divIv = setInterval(() => { checkDividends(); checkPassiveDividends(); }, 60000);
+  setTimeout(() => { checkDividends(); checkPassiveDividends(); }, 4000);   // after market loads
 }
 function stopHeartbeat() {
   presenceUnsubs.forEach((u) => u());
@@ -630,6 +671,49 @@ const lastSeenOf = (u) => presence[u.id]?.lastSeen || null;
    client agrees and nothing double-pays. ---- */
 const DIV_MIN_IMPACT = 0.15;
 const divRate = (impact) => 0.05 + Math.min(Math.abs(impact), 1) * 0.05;
+/* Passive dividends: 1% of each position's value every 10 minutes,
+   accruing while offline (capped at 48h of accrual so a month away
+   doesn't mint a fortune in one click). Missed intervals are valued
+   at the current price. Separate cursor from the news dividends. */
+const PASSIVE_RATE = 0.01, PASSIVE_MS = 600000, PASSIVE_CAP = 288;   // 288 intervals = 48h
+let passiveBusy = false;
+async function checkPassiveDividends() {
+  if (passiveBusy || !me || !myDoc || !market) return;
+  passiveBusy = true;
+  try {
+    const nowT = Date.now();
+    const last = myDoc.lastPassiveDivAt;
+    if (!last) { await updateDoc(doc(db, "users", me.uid), { lastPassiveDivAt: nowT }); return; }
+    const n = Math.min(PASSIVE_CAP, Math.floor((nowT - last) / PASSIVE_MS));
+    if (n < 1) return;
+    const holdings = myDoc.holdings || {};
+    let perTick = 0;
+    for (const [tk, sh] of Object.entries(holdings)) {
+      const st = findStock(tk);
+      if (!st || st.dead || !(sh > 0)) continue;
+      const px = engine.price(st, nowT);
+      if (px !== null) perTick += sh * px * PASSIVE_RATE;
+    }
+    const total = Math.round(perTick * n * 100) / 100;
+    const newCursor = last + n * PASSIVE_MS;
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const u = snap.data();
+      if (u.lastPassiveDivAt !== last) return;   // another tab claimed
+      tx.update(ref, {
+        cash: Math.round(((u.cash || 0) + total) * 100) / 100,
+        lastPassiveDivAt: newCursor
+      });
+    });
+    if (total > 0) {
+      if (n >= 2) toast("WHILE YOU WERE AWAY", `Your portfolio quietly paid ${fmt(total)} in dividends (${n} payouts${n === PASSIVE_CAP ? ", capped at 48h" : ""}).`);
+      else toast("DIVIDEND", `+${fmt(total)} from your holdings.`);
+    }
+  } catch (e) { console.error("passive dividend failed", e); }
+  finally { passiveBusy = false; }
+}
+
 let divBusy = false;
 async function checkDividends() {
   if (divBusy || !me || !myDoc || !market) return;

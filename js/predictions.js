@@ -16,7 +16,7 @@
 
 import {
   doc, collection, onSnapshot, runTransaction, getDoc, getDocs,
-  addDoc, deleteDoc, query, orderBy
+  addDoc, deleteDoc, updateDoc, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let api = null;     // { db, me, myDoc, fmt, toast, el, adminEl, isAdmin, ADMIN_UID }
@@ -361,6 +361,7 @@ function renderAdmin() {
     </div>
     ${preds.map(admCard).join("") || `<p class="muted">No predictions yet.</p>`}
     ${treasuryPanel()}
+    ${dangerZone()}
   `;
 
   el.querySelectorAll("[data-tr]").forEach((b) => b.addEventListener("click", () => {
@@ -369,6 +370,12 @@ function renderAdmin() {
   }));
   el.querySelectorAll("[data-liq]").forEach((b) => b.addEventListener("click", () =>
     forceSell(b.dataset.liq, b.dataset.name)));
+  el.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => {
+    const r = RESETS.find((x) => x.id === b.dataset.reset);
+    runReset([r.id], r.label);
+  }));
+  el.querySelector("#reset-all")?.addEventListener("click", () =>
+    runReset(RESETS.map((r) => r.id), "EVERYTHING (chat, predictions, Powerball, transfers, counters, all players)"));
 
   el.querySelectorAll("[data-ptype]").forEach((b) => b.addEventListener("click", () => {
     captureDraft(); draftType = b.dataset.ptype; renderAdmin();
@@ -461,6 +468,76 @@ async function forceSell(uid, name) {
     });
     api.toast("Position liquidated", `${name}'s holdings sold for ${api.fmt(total)}.`);
   } catch (e) { alert(e.message); }
+}
+
+
+/* ---- danger zone: full-site resets ----
+   Each wipes one system; RESET EVERYTHING runs the lot. Deletes are
+   client-driven doc-by-doc (fine at friend-group scale). Player reset
+   needs the widened admin branch in firestore.rules. */
+let resetBusy = false;
+
+async function wipeCollection(path, withSub) {
+  const qs = await getDocs(collection(api.db, ...path));
+  for (const d of qs.docs) {
+    if (withSub) {
+      const sub = await getDocs(collection(api.db, ...path, d.id, withSub));
+      for (const sd of sub.docs) await deleteDoc(sd.ref);
+    }
+    await deleteDoc(d.ref);
+  }
+  return qs.size;
+}
+const RESETS = [
+  { id: "chat", label: "Chat", run: async () => `${await wipeCollection(["chat"])} messages deleted` },
+  { id: "preds", label: "Predictions", run: async () => `${await wipeCollection(["predictions"], "bets")} predictions deleted` },
+  { id: "lotto", label: "Powerball", run: async () => `${await wipeCollection(["lottery"], "tickets")} draws deleted (pot resets to base)` },
+  { id: "transfers", label: "Transfer log", run: async () => `${await wipeCollection(["transfers"])} transfers deleted` },
+  { id: "stats", label: "Game counters", run: async () => {
+      await deleteDoc(doc(api.db, "market", "casinoStats")).catch(() => {});
+      await deleteDoc(doc(api.db, "market", "kenoStats")).catch(() => {});
+      return "global counters zeroed";
+    } },
+  { id: "players", label: "Players (cash 1000, wipe holdings/stats/caps)", run: async () => {
+      const qs = await getDocs(collection(api.db, "users"));
+      for (const d of qs.docs) {
+        await updateDoc(d.ref, {
+          cash: 1000, holdings: {}, gameStats: {}, work: {},
+          dailyClaim: null, lastDivAt: null, lastPassiveDivAt: null
+        });
+      }
+      return `${qs.size} players reset to ₡1,000`;
+    } }
+];
+async function runReset(ids, label) {
+  if (resetBusy) return;
+  if (prompt(`This wipes: ${label}. There is no undo.\nType RESET to confirm.`) !== "RESET") return;
+  resetBusy = true;
+  renderAdmin();
+  const done = [];
+  try {
+    for (const id of ids) {
+      const r = RESETS.find((x) => x.id === id);
+      done.push(`${r.label}: ${await r.run()}`);
+    }
+    alert("Done:\n" + done.join("\n"));
+  } catch (e) {
+    alert(`Reset stopped partway (${done.length} completed): ${e.message}`);
+  }
+  resetBusy = false;
+  renderAdmin();
+}
+function dangerZone() {
+  return `<div class="adm-form" style="margin-top:20px;border-color:var(--down)">
+    <h3 class="sec" style="margin-top:0;color:var(--down)">Danger Zone</h3>
+    <div class="rd-gear">
+      ${RESETS.map((r) => `<button class="ghost danger" data-reset="${r.id}" ${resetBusy ? "disabled" : ""}>Reset ${r.label}</button>`).join("")}
+    </div>
+    <div class="adm-form-actions" style="margin-top:12px">
+      <button class="ghost danger" id="reset-all" ${resetBusy ? "disabled" : ""} style="font-weight:700">☢ RESET EVERYTHING</button>
+    </div>
+    <p class="muted" style="font-size:12px">${resetBusy ? "Working — don't close this tab…" : "Every reset asks you to type RESET first. Player reset keeps names and avatars but returns everyone to ₡1,000 with no holdings, stats, or claim history. The market roster itself is untouched — the stocks and their history are deterministic and carry on."}</p>
+  </div>`;
 }
 
 function treasuryPanel() {

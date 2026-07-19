@@ -48,7 +48,6 @@ service cloud.firestore {
         )
         || (
           isAdmin()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["cash", "holdings"])
           && request.resource.data.cash is number
           && request.resource.data.cash >= 0
         )

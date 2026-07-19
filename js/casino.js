@@ -487,7 +487,7 @@ async function roulSpin() {
    next draw. Tickets persist in localStorage and settle on the
    next visit if you close the tab. */
 
-const KENO_MS = 180000;
+const KENO_MS = 90000;
 const KENO_SALT = 0x6b656e6f;
 const KENO_KEY = "vapor-keno-tickets";
 const KENO_PAY = {
@@ -505,6 +505,7 @@ const KENO_PAY = {
 
 let kenoPicks = [];
 let kenoBet = 10;
+let kenoGamesN = 1;
 /* Global play counters for every game, one shared doc in /market
    (any signed-in player may write it — no rules change needed).
    Each play also bumps the player's own gameStats for the
@@ -531,7 +532,6 @@ function bumpStat(game) {
 }
 const statLine = (game) => `<div class="keno-stat">🎲 <span data-stat="${game}">${(gameStats[game] || 0).toLocaleString("en-US")}</span> ${STAT_LABEL[game]} played all-time</div>`;
 let kenoTickets = [];       // [{ round, picks, bet, paid, payout, hits }]
-let kenoLastMsg = "";
 
 const kenoRound = () => Math.floor(Date.now() / KENO_MS);
 function kenoDraw(round) {
@@ -552,42 +552,68 @@ function kenoLoad() {
 async function kenoBuy() {
   if (kenoPicks.length < 1) { alert("Pick at least one number."); return; }
   const bet = Math.floor(Number(document.querySelector("#keno-bet")?.value || kenoBet));
+  const games = Math.min(50, Math.max(1, Math.floor(Number(document.querySelector("#keno-games-n")?.value || 1))));
   if (!(bet > 0)) return;
-  if (bet > api.getCash()) { alert("Not enough credits."); return; }
-  try { await api.settle(-bet, bet); }
+  const cost = bet * games;
+  if (cost > api.getCash()) { alert(`Not enough credits — that card costs ${api.fmt(cost)}.`); return; }
+  try { await api.settle(-cost, cost); }
   catch (e) { alert(e.message); return; }
   kenoBet = bet;
-  kenoTickets.push({ round: kenoRound(), picks: [...kenoPicks].sort((a, b) => a - b), bet, paid: false, payout: 0, hits: null });
-  bumpStat("keno");
+  for (let g = 0; g < games; g++) bumpStat("keno");
+  kenoTickets.push({
+    startRound: kenoRound(), games, played: 0, lastResolved: null,
+    picks: [...kenoPicks].sort((a, b) => a - b), bet,
+    totalWon: 0, done: false
+  });
   kenoPicks = [];
   kenoSave();
-  api.toast("Keno ticket in", `Plays the draw in ${kenoCountdown()}.`);
+  api.toast("Keno card in", games > 1
+    ? `${games} games at ${api.fmt(bet)} each (${api.fmt(cost)}). First draw ${kenoCountdown()}.`
+    : `Plays the draw in ${kenoCountdown()}.`);
   renderCasino();
 }
+let kenoReport = null;   // detailed breakdown of the most recent resolved game
 async function kenoResolveDue() {
   if (!api.me?.()) return;          // not signed in yet — tickets settle after login
   const cur = kenoRound();
   let changed = false;
   for (const t of kenoTickets) {
-    if (t.paid || t.round >= cur) continue;           // ticket plays when its round ends
-    const draw = kenoDraw(t.round);
-    const hits = t.picks.filter((p) => draw.includes(p)).length;
-    const mult = (KENO_PAY[t.picks.length] || {})[hits] || 0;
-    t.hits = hits;
-    t.payout = t.bet * mult;
-    t.paid = true;
-    changed = true;
-    if (t.payout > 0) {
-      try { await api.settle(t.payout, 0); }
-      catch (e) { t.paid = false; console.error("keno payout failed, retrying later", e); continue; }
-      kenoLastMsg = `Last draw: ${hits}/${t.picks.length} hits — won ${api.fmt(t.payout)}!`;
-      if (mult >= 40) api.toast("KENO", kenoLastMsg);
-    } else {
-      kenoLastMsg = `Last draw: ${hits}/${t.picks.length} hits — no win.`;
+    // migrate any pre-card single tickets from the old format
+    if (t.round !== undefined && t.startRound === undefined) {
+      t.startRound = t.round; t.games = 1; t.played = t.paid ? 1 : 0;
+      t.lastResolved = t.paid ? t.round : null; t.totalWon = t.payout || 0; t.done = !!t.paid;
+    }
+    if (t.done) continue;
+    const firstDue = t.lastResolved === null ? t.startRound : t.lastResolved + 1;
+    const lastDue = Math.min(cur - 1, t.startRound + t.games - 1);
+    for (let r = firstDue; r <= lastDue; r++) {
+      const draw = kenoDraw(r);
+      const hits = t.picks.filter((p) => draw.includes(p)).length;
+      const mult = (KENO_PAY[t.picks.length] || {})[hits] || 0;
+      const payout = t.bet * mult;
+      if (payout > 0) {
+        try { await api.settle(payout, 0); }
+        catch (e) { console.error("keno payout failed, retrying later", e); return; }
+      }
+      t.played++;
+      t.lastResolved = r;
+      t.totalWon = Math.round((t.totalWon + payout) * 100) / 100;
+      changed = true;
+      kenoReport = {
+        picks: t.picks, draw, hits, bet: t.bet, mult, payout,
+        game: t.played, games: t.games, totalWon: t.totalWon,
+        spent: t.bet * t.games
+      };
+      if (mult >= 40) api.toast("KENO", `${hits}/${t.picks.length} hits — ${mult}x pays ${api.fmt(payout)}!`);
+      if (t.played >= t.games) {
+        t.done = true;
+        if (t.games > 1) api.toast("KENO CARD COMPLETE", `${t.games} games: spent ${api.fmt(t.bet * t.games)}, won ${api.fmt(t.totalWon)}.`);
+        break;
+      }
     }
   }
   if (changed) {
-    kenoTickets = kenoTickets.filter((t) => !t.paid || t.round >= cur - 5);  // keep a short history
+    kenoTickets = kenoTickets.filter((t) => !t.done);
     kenoSave();
     renderCasino();
   }
@@ -985,16 +1011,27 @@ function renderCasino() {
           `<button class="keno-num ${kenoPicks.includes(n) ? "on" : ""} ${kenoDrawNow.includes(n) ? "drawn" : ""}" data-kn="${n}">${n}</button>`).join("")}
       </div>
       <p class="muted" style="font-size:11px;margin-top:6px">Highlighted cells were last draw's 20 numbers.</p>
-      <div class="casino-controls" style="margin-top:10px">
+      <div class="casino-controls" style="margin-top:10px;flex-wrap:wrap">
         <input id="keno-qp-count" type="number" min="1" max="10" step="1" value="5" title="How many numbers to auto-pick">
         <button class="ghost" id="keno-qp">Random pick</button>
-        <input id="keno-bet" type="number" min="1" step="1" value="${kenoBet}" title="Bet">
-        <button class="btn-spin" id="keno-buy" ${kenoPicks.length ? "" : "disabled"}>Play ${kenoPicks.length || "—"} number${kenoPicks.length === 1 ? "" : "s"} next draw</button>
+        <label class="muted" style="font-size:12px">Bet</label>
+        <input id="keno-bet" type="number" min="1" step="1" value="${kenoBet}" title="Bet per game">
+        <label class="muted" style="font-size:12px">Games</label>
+        <input id="keno-games-n" type="number" min="1" max="50" step="1" value="${kenoGamesN}" title="Number of consecutive draws this card plays">
+        <button class="btn-spin" id="keno-buy" ${kenoPicks.length ? "" : "disabled"}>Buy card${kenoPicks.length ? ` — ${api.fmt(kenoBet * kenoGamesN)}` : ""}</button>
         <button class="ghost" id="keno-clear">Clear</button>
       </div>
-      <div class="casino-msg">${kenoLastMsg || "Your ticket plays the next shared draw. More picks, bigger top prizes."}</div>
-      ${kenoTickets.filter((t) => !t.paid).length ? `<div class="keno-mine">
-        ${kenoTickets.filter((t) => !t.paid).map((t) => `<div class="lotto-ticket"><span class="muted" style="font-size:11px">draw ${t.round === kenoRound() ? "next" : "pending"} · ${api.fmt(t.bet)}</span> ${t.picks.map((p) => `<span class="ball" style="width:24px;height:24px;font-size:10px">${p}</span>`).join("")}</div>`).join("")}
+      ${kenoReport ? `<div class="keno-report">
+        <div class="keno-report-h">LAST GAME${kenoReport.games > 1 ? ` · game ${kenoReport.game}/${kenoReport.games} of your card` : ""}</div>
+        <div class="keno-report-row"><span>Your picks</span><div>${kenoReport.picks.map((p) => `<span class="ball ${kenoReport.draw.includes(p) ? "hit" : ""}" style="width:26px;height:26px;font-size:11px">${p}</span>`).join("")}</div></div>
+        <div class="keno-report-row"><span>Hits</span><b class="${kenoReport.payout > 0 ? "up" : ""}">${kenoReport.hits}/${kenoReport.picks.length}${kenoReport.mult ? ` — ${kenoReport.mult}x` : ""}</b></div>
+        <div class="keno-report-row"><span>This game</span><b class="${kenoReport.payout > 0 ? "up" : "down"}">${kenoReport.payout > 0 ? "+" + api.fmt(kenoReport.payout) : "-" + api.fmt(kenoReport.bet)}</b></div>
+        ${kenoReport.games > 1 ? `<div class="keno-report-row"><span>Card so far</span><b class="${kenoReport.totalWon >= kenoReport.spent / kenoReport.games * kenoReport.game ? "up" : ""}">won ${api.fmt(kenoReport.totalWon)} of ${api.fmt(kenoReport.spent)} spent</b></div>` : ""}
+      </div>` : `<div class="casino-msg">Your card plays the next shared draw. More picks, bigger top prizes.</div>`}
+      ${kenoTickets.filter((t) => !t.done).length ? `<div class="keno-mine">
+        ${kenoTickets.filter((t) => !t.done).map((t) => `<div class="lotto-ticket">
+          <span class="muted" style="font-size:11px">${t.games > 1 ? `game ${t.played + 1}/${t.games} · won ${api.fmt(t.totalWon)} so far` : "next draw"} · ${api.fmt(t.bet)}/game</span>
+          ${t.picks.map((p) => `<span class="ball" style="width:24px;height:24px;font-size:10px">${p}</span>`).join("")}</div>`).join("")}
       </div>` : ""}
       <div class="paytable" style="margin-top:12px">
         <div>Pick 1: 1hit 3x</div><div>Pick 3: 3hit 16x</div><div>Pick 5: 5hit 150x</div>
@@ -1054,6 +1091,14 @@ function renderCasino() {
   el.querySelector("#pk-deal")?.addEventListener("click", pkDeal);
   el.querySelector("#pk-double")?.addEventListener("click", pkDouble);
   el.querySelector("#pk-draw")?.addEventListener("click", pkDraw);
+  el.querySelector("#keno-games-n")?.addEventListener("change", (e) => {
+    kenoGamesN = Math.min(50, Math.max(1, Math.floor(Number(e.target.value) || 1)));
+    renderCasino();
+  });
+  el.querySelector("#keno-bet")?.addEventListener("change", (e) => {
+    kenoBet = Math.max(1, Math.floor(Number(e.target.value) || 1));
+    renderCasino();
+  });
   el.querySelector("#keno-buy")?.addEventListener("click", kenoBuy);
   el.querySelector("#keno-clear")?.addEventListener("click", () => { kenoPicks = []; renderCasino(); });
   el.querySelector("#keno-qp")?.addEventListener("click", () => {

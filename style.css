@@ -879,3 +879,18 @@ header {
 .rd-itemrow { display: flex; align-items: center; gap: 8px; width: 100%; }
 .rd-itemrow > span:first-child { flex: 1; }
 .rd-intent { color: var(--amber) !important; font-weight: 700; }
+
+.pf-pos-head { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 6px; }
+
+/* keno report */
+.keno-report {
+  margin-top: 12px; padding: 10px 14px; text-align: left;
+  background: var(--ink); border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+.keno-report-h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--amber); margin-bottom: 8px; }
+.keno-report-row {
+  display: flex; gap: 12px; align-items: center; padding: 3px 0;
+  font-size: 13px;
+}
+.keno-report-row > span:first-child { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); min-width: 84px; }

@@ -843,7 +843,7 @@ function renderLeaderboard() {
 
     return `<div class="lb-row ${isMe ? "me" : ""} ${tipOpen === u.id ? "tip-open" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
-      <div class="lb-name">${social.avatarHtml(u, 30)}<span class="xp-badge sm">L${u.lvl}</span><span>${name}</span></div>
+      <div class="lb-name">${social.avatarHtml(u, 30)}<span class="xp-badge sm">${u.lvl}</span><span>${name}</span></div>
       <div class="lb-val">${fmt(u.total)}</div>
       <div class="lb-val" title="Net worth and cash invested in levels">${fmt(u.total + (u.levelSpent || 0))} <span class="muted" style="font-size:10px">lifetime</span></div>
       <div class="lb-act">

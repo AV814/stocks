@@ -336,8 +336,9 @@ function hkHtml() {
    starts after a grace period, advances one tile at a time, and
    locks every pipe it fills. Directions: U=1 R=2 D=4 L=8. */
 
-const PIPE_W = 7, PIPE_H = 5;
-const PIPE_GRACE = 8000, PIPE_FLOW = 1500;
+const PIPE_W = 12, PIPE_H = 12;
+const PIPE_GRACE = 12000, PIPE_FLOW = 1500, PIPE_FAST = 220;
+const PIPE_BLOCKED = 26;
 const oppDir = (d) => ((d << 2) | (d >> 2)) & 15;
 let pipes = null;
 
@@ -360,7 +361,7 @@ function ppSolutionPath(inRow, outRow) {
     const visited = new Set([y * PIPE_W]);
     const path = [];
     let ok = false;
-    for (let steps = 0; steps < 60; steps++) {
+    for (let steps = 0; steps < 220; steps++) {
       if (x === PIPE_W - 1 && y === outRow) {
         path.push({ i: y * PIPE_W + x, mask: inSide | 2 });   // exit right
         ok = true;
@@ -409,7 +410,8 @@ function ppNew() {
 
   // blocked cells stay off the solution path so it's always rebuildable
   const blocked = new Set();
-  while (blocked.size < 2) {
+  let guard = 0;
+  while (blocked.size < PIPE_BLOCKED && guard++ < 2000) {
     const i = Math.floor(Math.random() * PIPE_W * PIPE_H);
     if (!solCells.has(i) && i !== inRow * PIPE_W && i !== outRow * PIPE_W + PIPE_W - 1) blocked.add(i);
   }
@@ -453,11 +455,22 @@ function ppTickUi() {
 }
 function ppFlowStart() {
   if (!pipes || pipes.phase !== "build") return;
+  if (pipes.timer) { clearTimeout(pipes.timer); pipes.timer = null; }
   pipes.phase = "flowing";
   pipes.fluidAt = pipes.inRow * PIPE_W;
   pipes.fluidIn = 8;
   ppAdvance(true);
-  pipes.timer = setInterval(() => ppAdvance(false), PIPE_FLOW);
+  pipes.timer = setInterval(() => ppAdvance(false), pipes.fast ? PIPE_FAST : PIPE_FLOW);
+}
+function ppValve() {
+  if (!pipes || (pipes.phase !== "build" && pipes.phase !== "flowing")) return;
+  pipes.fast = true;
+  if (pipes.phase === "build") { ppFlowStart(); }
+  else if (pipes.timer) {
+    clearInterval(pipes.timer);
+    pipes.timer = setInterval(() => ppAdvance(false), PIPE_FAST);
+  }
+  renderWork();
 }
 function ppAdvance(entering) {
   if (!pipes || pipes.phase !== "flowing") return;
@@ -488,7 +501,7 @@ function ppWin() {
   ppStop();
   pipes.phase = "won";
   const secs = (Date.now() - pipes.t0) / 1000;
-  const bonus = Math.round(30 * Math.max(0, Math.min(1, (75 - secs) / 50)));
+  const bonus = Math.round(40 * Math.max(0, Math.min(1, (150 - secs) / 110)));
   payWork("pipes", 60 + bonus, `routing the flow in ${Math.round(secs)}s`);
 }
 function ppBurst() {
@@ -533,6 +546,7 @@ function ppHtml() {
     ${capLine("pipes")}
     <div class="ms-bar">
       <span class="muted" style="font-size:12px" id="pp-status">${status || "Fluid incoming — swap pipes into place!"}</span>
+      ${(pipes.phase === "build" || pipes.phase === "flowing") && !pipes.fast ? `<button class="btn-spin" id="pp-valve" title="Confident? Send the fluid through at full pressure.">Open the valve</button>` : ""}
       <button class="ghost" id="pp-new">New board</button>
     </div>
     <div class="pp-grid">${rows.join("")}</div>
@@ -738,6 +752,7 @@ export function renderWork() {
     });
   });
   el.querySelector("#pp-new")?.addEventListener("click", ppNew);
+  el.querySelector("#pp-valve")?.addEventListener("click", ppValve);
 
   // intrusion
   el.querySelector("#in-start")?.addEventListener("click", inStart);

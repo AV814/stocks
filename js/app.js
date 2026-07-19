@@ -16,9 +16,10 @@ import { MarketEngine, deriveSeed, makeIdentity } from "./market.js";
 import { initCasino } from "./casino.js";
 import { initPredictions } from "./predictions.js";
 import { initSocial } from "./social.js";
-import { initLottery } from "./lottery.js";
+import { initLottery, nyDay } from "./lottery.js";
 import { initChat } from "./chat.js";
 import { initWork } from "./work.js";
+import { initRaid } from "./raid.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -48,7 +49,7 @@ const pct = (n) => (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 /* ---- shared cash mover for casino: one transaction on my own doc.
    delta may be negative; minStake is the cash needed up front. ---- */
 const BONUS_AMT = 100;
-const bonusDay = () => Math.floor((Date.now() - 5 * 3600000) / 86400000); // midnight ET boundary
+const bonusDay = () => nyDay(); // true midnight America/New_York, DST-proof
 async function claimDaily() {
   if (!me || !myDoc) return;
   if (myDoc.dailyClaim === bonusDay()) return;
@@ -124,6 +125,12 @@ const work = initWork({
   me: () => me,
   myDoc: () => myDoc,
   el: () => $("#view-work")
+});
+const raid = initRaid({
+  db, fmt, toast, settle,
+  me: () => me,
+  myDoc: () => myDoc,
+  el: () => $("#view-raid")
 });
 
 /* ================= AUTH ================= */
@@ -350,7 +357,7 @@ document.querySelectorAll(".tab").forEach((b) =>
 );
 
 function showView(id) {
-  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "work", "admin"].forEach((v) =>
+  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "work", "raid", "admin"].forEach((v) =>
     $(`#view-${v}`).classList.toggle("hidden", v !== id)
   );
 }
@@ -384,6 +391,7 @@ function render() {
   else if (view === "predict") predictions.renderPredictions();
   else if (view === "chat") chat.renderChat();
   else if (view === "work") work.renderWork();
+  else if (view === "raid") raid.renderRaid();
   if (view !== "work") work.stop();   // pause snake instead of letting it die offscreen
   else if (view === "admin") predictions.renderAdmin();
 }
@@ -702,7 +710,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"],["raid","Tower Raids"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

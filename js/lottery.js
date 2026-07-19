@@ -32,12 +32,34 @@ const TICKET = 25;
 const NUM_MAX = 20, PICKS = 4, PB_MAX = 5;
 const BASE_POT = 1000;
 const POT_CUT = 0.25;                        // quarter of each ticket feeds the pot
-const DAY_MS = 86400000;
-const DRAW_OFFSET = 5 * 3600000;             // boundaries at 05:00 UTC = midnight EST (1 AM EDT)
 const LOTTO_SALT = 0x7a9b0421;
 
-const drawId = (t = Date.now()) => Math.floor((t - DRAW_OFFSET) / DAY_MS);
-const drawEnd = (w) => (w + 1) * DAY_MS + DRAW_OFFSET;
+/* True Eastern-time midnight, DST-proof: the day index comes from the
+   calendar date in America/New_York, so boundaries land on actual
+   midnight ET year-round (browsers share IANA tz data, so every
+   client computes the same index). Exported for the daily bonus and
+   work caps too. */
+const NY_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+});
+function nyParts(t) {
+  const p = {};
+  NY_FMT.formatToParts(t).forEach((x) => { p[x.type] = x.value; });
+  return p;
+}
+export function nyDay(t = Date.now()) {
+  const p = nyParts(t);
+  return Math.floor(Date.UTC(+p.year, +p.month - 1, +p.day) / 86400000);
+}
+export function nyNextMidnight(t = Date.now()) {
+  const p = nyParts(t);
+  const sinceMid = (((+p.hour) % 24) * 3600 + (+p.minute) * 60 + (+p.second)) * 1000 + (t % 1000);
+  return t - sinceMid + 86400000;
+}
+
+const drawId = (t = Date.now()) => nyDay(t);
 
 /* ---------- the draw: deterministic per night ---------- */
 export function drawFor(w) {
@@ -245,7 +267,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function drawCountdown() {
-  const ms = drawEnd(drawId()) - Date.now();
+  const ms = nyNextMidnight() - Date.now();
   const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
   return h > 0 ? `in ${h}h ${m}m` : `in ${m}m`;
 }

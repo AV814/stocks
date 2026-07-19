@@ -15,12 +15,13 @@
 import {
   doc, runTransaction, setDoc, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { nyDay } from "./lottery.js";
 
 let api = null;   // { db, fmt, toast, me, myDoc, el }
 let mode = "mines";
 
 const DAY_CAP = 200;                                 // per game, per day
-const workDay = () => Math.floor((Date.now() - 5 * 3600000) / 86400000);
+const workDay = () => nyDay();   // true midnight America/New_York, DST-proof
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 

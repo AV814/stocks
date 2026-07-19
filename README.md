@@ -110,6 +110,11 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 Work plays are counted in the same global and per-player stat counters as casino games.
 
+
+## Vapor Tower (Raid tab)
+
+A text-adventure roguelike and the game's biggest repeatable money loop. Sign a contract at one of three difficulties (entry ₡50/₡150/₡400, paying ₡160/₡520/₡1,500), buy per-run gear in the shop — weapons, armor, Vitality Smoothies — then fight turn-by-turn through four floors of corporate security with supply crates between fights (cash, potions, attack buffs, or the occasional trap), and take the boss in the penthouse for the payout. Combat offers Attack, a heavy swing (1.8x, 25% miss), potions, and fleeing. Death or fleeing forfeits the entry and gear; gear never carries between runs, so every attempt demands fresh investment. Runs persist through reloads, and payouts are crash-safe. Timing note: everything scheduled at "midnight ET" (Powerball draw, daily bonus, work caps) now uses true America/New_York midnight, DST-proof.
+
 ## Profile pictures & sending credits
 
 Click the avatar circle in the header (next to your cash) to set a profile picture. The image is center-cropped, shrunk to 96px, and stored as a compressed data URL on your user doc — no Firebase Storage or billing plan required. It shows next to your name on the leaderboard.

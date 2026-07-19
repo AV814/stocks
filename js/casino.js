@@ -39,6 +39,20 @@ function slotPayout(reels, bet) {
 }
 
 const slots = { reels: ["🍒", "🍋", "⭐"], spinning: false, lastResult: null, bet: 10 };
+const SLOT_KEY = "vapor-slots-pending";
+let slotsRecovering = false;
+function recoverSlots() {
+  if (slotsRecovering || !api.me?.()) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(SLOT_KEY) || "null"); }
+  catch { localStorage.removeItem(SLOT_KEY); return; }
+  if (!p || !(p.win > 0)) return;
+  slotsRecovering = true;
+  api.settle(p.win, 0)
+    .then(() => { localStorage.removeItem(SLOT_KEY); api.toast("SLOTS", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .catch(() => {})
+    .finally(() => { slotsRecovering = false; });
+}
 
 async function doSpin() {
   if (slots.spinning) return;
@@ -54,11 +68,12 @@ async function doSpin() {
   const payout = Math.round(bet * mult * 100) / 100;
   const net = payout - bet;
 
-  // settle up front (single transaction: -bet +payout); animation plays regardless
-  let settled = true;
-  try { await api.settle(net, bet); }
-  catch (e) { settled = false; slots.spinning = false; alert(e.message); renderCasino(); return; }
+  // wager comes out now; the payout lands only when the reels stop,
+  // so the cash pill can't spoil the result mid-spin
+  try { await api.settle(-bet, bet); }
+  catch (e) { slots.spinning = false; alert(e.message); renderCasino(); return; }
   bumpStat("slots");
+  if (payout > 0) localStorage.setItem(SLOT_KEY, JSON.stringify({ win: payout }));  // reload-safe
 
   // animate: reels stop left → right
   renderCasino();
@@ -77,7 +92,12 @@ async function doSpin() {
       slots.reels = finalReels;
       slots.spinning = false;
       slots.lastResult = { win: payout > 0, payout, net, label, bet };
-      if (payout >= bet * 5) api.toast("JACKPOT", `${label} pays ${api.fmt(payout)}!`);
+      if (payout > 0) {
+        api.settle(payout, 0)
+          .then(() => localStorage.removeItem(SLOT_KEY))
+          .catch((e) => console.error("slots payout failed, recovery will retry", e));
+        if (payout >= bet * 5) api.toast("JACKPOT", `${label} pays ${api.fmt(payout)}!`);
+      }
       renderCasino();
     }
   }, 70);
@@ -988,6 +1008,7 @@ function renderCasino() {
   recoverRoulette();
   recoverPoker();
   recoverBlackjack();
+  recoverSlots();
   bj.anim = null;                                  // flips play once, not on background re-renders
   if (pk.phase === "done") pk.animShown = true;
   if (mode === "lotto") api.renderLotto();

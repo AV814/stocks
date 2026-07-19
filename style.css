@@ -838,3 +838,38 @@ header {
 
 /* poker: the house's unused 6th card */
 .pk-unused { opacity: 0.35; }
+
+/* ---------- Vapor Tower raids ---------- */
+.rd-shop-h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--amber); margin: 12px 0 6px; text-transform: uppercase; }
+.rd-diffs, .rd-gear { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rd-diff, .rd-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 8px 12px; font-size: 13px; text-align: left;
+}
+.rd-diff span, .rd-item span { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); }
+.rd-diff.on, .rd-item.on { background: var(--select) !important; }
+.rd-diff.on span, .rd-item.on span, .rd-item.on { color: #fff !important; }
+.rd-pcount { font-family: var(--mono); font-size: 16px; min-width: 28px; text-align: center; display: inline-block; }
+.rd-hud {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center;
+  background: var(--panel); border: 2px solid;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  padding: 10px 14px; margin-bottom: 10px;
+}
+.rd-stat-l { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); margin: 2px 0; }
+.rd-bar { height: 10px; background: var(--ink); border: 1px solid var(--bev-dark); }
+.rd-fill { height: 100%; transition: width 0.25s ease; }
+.rd-fill.you { background: var(--up); }
+.rd-fill.foe { background: var(--down); }
+.rd-prog { font-family: var(--mono); font-size: 12px; color: var(--amber); white-space: nowrap; }
+.rd-log {
+  height: min(44vh, 380px); overflow-y: auto;
+  background: var(--ink); border: 2px solid;
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+  padding: 10px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+}
+.rd-log .rd-sys { color: var(--amber); }
+.rd-log .rd-hit { color: var(--up); }
+.rd-log .rd-hurt { color: var(--down); }
+.rd-log .rd-heal { color: #7ec8e3; }
+.rd-log .rd-boss { color: #cc7a5a; font-weight: 700; }

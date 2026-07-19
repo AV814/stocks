@@ -675,7 +675,7 @@ const divRate = (impact) => 0.05 + Math.min(Math.abs(impact), 1) * 0.05;
    accruing while offline (capped at 48h of accrual so a month away
    doesn't mint a fortune in one click). Missed intervals are valued
    at the current price. Separate cursor from the news dividends. */
-const PASSIVE_RATE = 0.005, PASSIVE_MS = 600000, PASSIVE_CAP = 288;   // 0.0002 = 0.02% per tick; 288 ticks = 48h
+const PASSIVE_RATE = 0.005, PASSIVE_MS = 300000, PASSIVE_CAP = 288;   // 0.0002 = 0.02% per tick; 288 ticks = 48h
 let passiveBusy = false;
 async function checkPassiveDividends() {
   if (passiveBusy || !me || !myDoc || !market) return;

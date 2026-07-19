@@ -109,7 +109,7 @@ const social = initSocial({
   myDoc: () => myDoc
 });
 const chat = initChat({
-  db,
+  db, fmt, settle,
   me: () => me,
   myDoc: () => myDoc,
   users: () => allUsers,

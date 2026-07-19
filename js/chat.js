@@ -64,13 +64,17 @@ async function send() {
   } catch (e) { alert(e.message); }
 }
 
+const DOODLE_COST = 25;
 async function sendDoodle() {
   const cv = document.querySelector("#chat-canvas");
   if (!cv || !api.me()) return;
   if (Date.now() - lastSentAt < 1500) return;
-  lastSentAt = Date.now();
   const img = cv.toDataURL("image/png");
   if (img.length > 11500) { alert("That drawing is too detailed to send — simplify it a bit."); return; }
+  if ((api.myDoc()?.cash || 0) < DOODLE_COST) { alert(`Posting a masterpiece costs ${api.fmt(DOODLE_COST)}. You're short.`); return; }
+  lastSentAt = Date.now();
+  try { await api.settle(-DOODLE_COST, DOODLE_COST); }   // gallery fee
+  catch (e) { alert(e.message); return; }
   try {
     await addDoc(collection(api.db, "chat"), {
       uid: api.me().uid,
@@ -81,7 +85,10 @@ async function sendDoodle() {
     });
     clearCanvas();
     toggleDraw(false);
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    api.settle(DOODLE_COST, 0).catch(() => {});          // post failed — refund the fee
+    alert(e.message);
+  }
 }
 function clearCanvas() {
   const cv = document.querySelector("#chat-canvas");
@@ -233,7 +240,7 @@ export function renderChat() {
           </div>
           <div class="chat-draw-actions">
             <button class="ghost" id="chat-clear">Clear</button>
-            <button class="btn-spin" id="chat-upload">Upload to chat</button>
+            <button class="btn-spin" id="chat-upload">Upload — ₡25</button>
           </div>
         </div>
       </div>

@@ -905,3 +905,35 @@ header {
 }
 .chat-size-l { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); display: block; }
 #chat-size { width: 110px; vertical-align: middle; margin-left: 6px; }
+
+/* Steam-styled range sliders (paint brush size, and any future ranges) */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 18px; background: transparent;
+  border: none !important; padding: 0 !important;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px; background: #333a2e;
+  border: 2px solid; border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; margin-top: -6px;
+  background: var(--panel-2);
+  border: 2px solid; border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.35);
+  cursor: pointer;
+}
+input[type="range"]:active::-webkit-slider-thumb {
+  border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+input[type="range"]::-moz-range-track {
+  height: 8px; background: #333a2e;
+  border: 2px solid; border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 0;
+  background: var(--panel-2);
+  border: 2px solid; border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  cursor: pointer;
+}

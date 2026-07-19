@@ -95,7 +95,7 @@ Hovering a name on the leaderboard (tap on mobile) opens a stat card: their curr
 
 ## Trading floor chat
 
-The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. The 🎨 button opens a doodle pad: a 50x50 pixel canvas with brush and fill-bucket tools, a 1-4px brush size slider, a 12-color palette plus a full-spectrum color picker — draw and upload straight into the chat as a crisp pixel-art card. Enforced in the rules: authors post as themselves, messages are text (500-char cap) or a small PNG doodle (12KB cap).
+The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. The 🎨 button opens a doodle pad: a 50x50 pixel canvas with brush and fill-bucket tools, a 1-4px brush size slider, a 12-color palette plus a full-spectrum color picker; posting a doodle costs ₡25 — draw and upload straight into the chat as a crisp pixel-art card. Enforced in the rules: authors post as themselves, messages are text (500-char cap) or a small PNG doodle (12KB cap).
 
 
 ## Work (guaranteed wages)

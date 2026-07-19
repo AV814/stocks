@@ -772,11 +772,50 @@ document.addEventListener("click", (e) => {
   }
 });
 
+/* Leveling: pay credits into your XP bar. Level-up requirement starts
+   at ₡1,000 and grows ₡200 per level. Standings rank by level first,
+   then by current net worth within a level. */
+const levelReq = (lvl) => 1000 + 200 * (lvl || 0);
+async function investXp() {
+  const amt = Math.floor(Number($("#xp-amt")?.value || 0));
+  if (!(amt > 0)) return;
+  if (amt > (myDoc?.cash || 0)) { alert("Not enough credits."); return; }
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const u = snap.data();
+      if ((u.cash || 0) < amt) throw new Error("Not enough credits.");
+      let level = u.level || 0, xp = (u.xp || 0) + amt, ups = 0;
+      while (xp >= levelReq(level)) { xp -= levelReq(level); level++; ups++; }
+      tx.update(ref, {
+        cash: Math.round(((u.cash || 0) - amt) * 100) / 100,
+        level, xp,
+        levelSpent: Math.round(((u.levelSpent || 0) + amt) * 100) / 100
+      });
+      tx._ups = ups; tx._level = level;
+    });
+    toast("XP INVESTED", `${fmt(amt)} into the grind.`);
+  } catch (e) { alert(e.message); }
+}
+function levelPanel() {
+  const lvl = myDoc?.level || 0, xp = myDoc?.xp || 0, req = levelReq(lvl);
+  return `<div class="xp-card">
+    <div class="xp-head"><span class="xp-badge">LVL ${lvl}</span>
+      <span class="muted" style="font-size:12px">${fmt(xp)} / ${fmt(req)} to level ${lvl + 1} · ${fmt(myDoc?.levelSpent || 0)} invested lifetime</span></div>
+    <div class="xp-bar"><div class="xp-fill" style="width:${Math.min(100, xp / req * 100)}%"></div></div>
+    <div class="xp-actions">
+      <input id="xp-amt" type="number" min="1" step="1" placeholder="₡ to invest">
+      <button class="btn-spin" id="xp-buy">Level up</button>
+    </div>
+  </div>`;
+}
+
 function renderLeaderboard() {
   const ranked = allUsers
-    .map((u) => ({ ...u, total: portfolioValue(u) }))
-    .sort((a, b) => b.total - a.total);
-  $("#view-leaderboard").innerHTML = `<h3 class="sec">Standings</h3>` + ranked.map((u, i) => {
+    .map((u) => ({ ...u, total: portfolioValue(u), lvl: u.level || 0 }))
+    .sort((a, b) => b.lvl - a.lvl || b.total - a.total);
+  $("#view-leaderboard").innerHTML = `<h3 class="sec">Standings</h3>` + levelPanel() + ranked.map((u, i) => {
     const g = u.total / STARTING_CASH - 1;
     const isMe = u.id === me?.uid;
     const name = escHtml(u.name || "Trader");
@@ -804,9 +843,9 @@ function renderLeaderboard() {
 
     return `<div class="lb-row ${isMe ? "me" : ""} ${tipOpen === u.id ? "tip-open" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
-      <div class="lb-name">${social.avatarHtml(u, 30)}<span>${name}</span></div>
+      <div class="lb-name">${social.avatarHtml(u, 30)}<span class="xp-badge sm">L${u.lvl}</span><span>${name}</span></div>
       <div class="lb-val">${fmt(u.total)}</div>
-      <div class="lb-val ${g >= 0 ? "up" : "down"}">${pct(g)}</div>
+      <div class="lb-val" title="Net worth + credits invested in levels">${fmt(u.total + (u.levelSpent || 0))} <span class="muted" style="font-size:10px">lifetime</span></div>
       <div class="lb-act">
         ${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}
         <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : lastSeenOf(u) ? "Last seen " + new Date(lastSeenOf(u)).toLocaleString() : "Never seen online"}"></span>
@@ -827,6 +866,7 @@ function renderLeaderboard() {
       tipOpen = tipOpen === uid ? null : uid;
       renderLeaderboard();
     }));
+  $("#view-leaderboard").querySelector("#xp-buy")?.addEventListener("click", investXp);
   $("#view-leaderboard").querySelectorAll(".lb-send").forEach((b) =>
     b.addEventListener("click", () => {
       sendOpen = sendOpen === b.dataset.uid ? null : b.dataset.uid;

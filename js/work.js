@@ -151,11 +151,12 @@ function msHtml() {
    15x15, ₡2 a pellet, paid when you crash. Arrows/WASD or the
    on-screen pad. Speeds up as you grow. */
 
-const SN = 15, SNAKE_CELL = 33;   // 50% bigger board
+const SN = 22, SNAKE_CELL = 22;   // original cell size, 50% more grid
 let snake = null;  // { body, dir, nextDir, food, score, dead, iv }
 function snStart() {
   snStop();
-  snake = { body: [112, 111, 110], dir: 1, queue: [], food: null, score: 0, dead: false, iv: null, waiting: true };
+  const mid = Math.floor(SN / 2) * SN + Math.floor(SN / 2);
+  snake = { body: [mid, mid - 1, mid - 2], dir: 1, queue: [], food: null, score: 0, dead: false, iv: null, waiting: true };
   snFood();
   snake.iv = setInterval(snTick, snSpeed());
   renderWork();

@@ -19,6 +19,20 @@ const SYMBOLS = [
   { s: "❦", w: 30 }, { s: "✿", w: 20 }, { s: "★", w: 18 },
   { s: "♫", w: 14 }, { s: "◆", w: 10 }, { s: "7", w: 8 }
 ];
+const SYM_COLOR = {
+  "❦": "#d9534f",   // cherry red
+  "✿": "#e8d44d",   // lemon yellow
+  "★": "#e8a33d",   // star gold
+  "♫": "#c9a227",   // bell brass
+  "◆": "#6fb7d9",   // diamond ice
+  "7": "#e05c5c"    // lucky red
+};
+const symSpan = (g) => `<span style="color:${SYM_COLOR[g] || "inherit"}">${g}</span>`;
+const SCRATCH_COLOR = {
+  "♣": "#5aa03c", "$": "#8bd450", "♫": "#c9a227", "◆": "#6fb7d9", "↟": "#e8a33d", "♛": "#c77dd6",
+  "~": "#6a705f", "%": "#6a705f", "#": "#6a705f", "!": "#6a705f", "↡": "#6a705f", "?": "#6a705f"
+};
+const scSpan = (g) => `<span style="color:${SCRATCH_COLOR[g] || "inherit"}">${g}</span>`;
 const REEL_TOTAL = SYMBOLS.reduce((a, x) => a + x.w, 0);
 
 function spinSymbol() {
@@ -84,8 +98,8 @@ async function doSpin() {
     for (let i = 0; i < 3; i++) {
       const el = document.querySelector(`#reel-${i}`);
       if (!el) continue;
-      if (dt < stopAt[i]) el.textContent = spinSymbol();
-      else el.textContent = finalReels[i];
+      if (dt < stopAt[i]) el.innerHTML = symSpan(spinSymbol());
+      else el.innerHTML = symSpan(finalReels[i]);
     }
     if (dt >= stopAt[2]) {
       clearInterval(iv);
@@ -199,7 +213,7 @@ function revealCell(i) {
   if (scratch.revealed.has(i)) return;
   scratch.revealed.add(i);
   const cell = document.querySelector(`[data-sc="${i}"]`);
-  if (cell) { cell.classList.add("revealed"); cell.textContent = scratch.grid[i]; }
+  if (cell) { cell.classList.add("revealed"); cell.innerHTML = scSpan(scratch.grid[i]); }
   if (scratch.revealed.size === 9) {
     scratch.done = true;
     saveScratch();
@@ -825,7 +839,7 @@ function renderCasino() {
     <div class="casino-panel">
       ${statLine("slots")}
       <div class="slot-reels">
-        ${slots.reels.map((s, i) => `<div class="reel" id="reel-${i}">${s}</div>`).join("")}
+        ${slots.reels.map((s, i) => `<div class="reel" id="reel-${i}">${symSpan(s)}</div>`).join("")}
       </div>
       <div class="casino-controls">
         <input id="slot-bet" type="number" min="1" step="1" value="${slots.bet}" ${slots.spinning ? "disabled" : ""}>
@@ -839,8 +853,8 @@ function renderCasino() {
           : "Place a bet and spin."}
       </div>
       <div class="paytable">
-        <div>777 50x</div><div>◆◆◆ 25x</div><div>♫♫♫ 12x</div><div>★★★ 8x</div>
-        <div>✿✿✿ 6x</div><div>❦❦❦ 5x</div><div>❦❦ 2x</div><div>❦ 0.5x</div>
+        <div>${symSpan("7").repeat(3)} 50x</div><div>${symSpan("◆").repeat(3)} 25x</div><div>${symSpan("♫").repeat(3)} 12x</div><div>${symSpan("★").repeat(3)} 8x</div>
+        <div>${symSpan("✿").repeat(3)} 6x</div><div>${symSpan("❦").repeat(3)} 5x</div><div>${symSpan("❦").repeat(2)} 2x</div><div>${symSpan("❦")} 0.5x</div>
       </div>
     </div>`;
 
@@ -891,7 +905,7 @@ function renderCasino() {
       ${scratch ? `
         <div class="scratch-name" style="color:${scratch.tier.hue}">${scratch.tier.name} · ${api.fmt(scratch.tier.price)}</div>
         <div class="scratch-grid">
-          ${scratch.grid.map((s, i) => `<button class="scratch-cell ${scratch.revealed.has(i) ? "revealed" : ""}" data-sc="${i}">${scratch.revealed.has(i) ? s : ""}</button>`).join("")}
+          ${scratch.grid.map((s, i) => `<button class="scratch-cell ${scratch.revealed.has(i) ? "revealed" : ""}" data-sc="${i}">${scratch.revealed.has(i) ? scSpan(s) : ""}</button>`).join("")}
         </div>
         <div class="casino-controls" style="margin-top:12px">
           ${scratch.done ? "" : `<button class="ghost" id="sc-all">Reveal all</button>`}

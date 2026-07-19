@@ -817,8 +817,8 @@ header {
   width: 52px; height: 62px; margin: 0 3px;
   transform-style: preserve-3d;
   transform: rotateY(0deg);
-  animation: pk-open 0.45s ease forwards;
-  animation-fill-mode: backwards;
+  animation: pk-open 0.45s ease;
+  animation-fill-mode: both;
   vertical-align: middle;
 }
 .pk-face {

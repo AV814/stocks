@@ -806,7 +806,7 @@ function levelPanel() {
     <div class="xp-bar"><div class="xp-fill" style="width:${Math.min(100, xp / req * 100)}%"></div></div>
     <div class="xp-actions">
       <input id="xp-amt" type="number" min="1" step="1" placeholder="₡ to invest">
-      <button class="btn-spin" id="xp-buy">Level up</button>
+      <button class="btn-spin" id="xp-buy">Add</button>
     </div>
   </div>`;
 }
@@ -836,19 +836,19 @@ function renderLeaderboard() {
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">
       <div class="lb-tip-h">Holdings</div>
-      ${holdRows || `<div class="lb-tip-row muted"><span>All cash, no positions</span></div>`}
+      ${holdRows || `<div class="lb-tip-row muted"><span>Nothing in stocks</span></div>`}
       <div class="lb-tip-h">Games played</div>
-      ${gameRows || `<div class="lb-tip-row muted"><span>Hasn't touched the Lounge</span></div>`}
+      ${gameRows || `<div class="lb-tip-row muted"><span>Has not been to the casino</span></div>`}
     </div>`;
 
     return `<div class="lb-row ${isMe ? "me" : ""} ${tipOpen === u.id ? "tip-open" : ""}" data-tip-uid="${u.id}">
       <div class="lb-rank">#${i + 1}</div>
       <div class="lb-name">${social.avatarHtml(u, 30)}<span class="xp-badge sm">L${u.lvl}</span><span>${name}</span></div>
       <div class="lb-val">${fmt(u.total)}</div>
-      <div class="lb-val" title="Net worth + credits invested in levels">${fmt(u.total + (u.levelSpent || 0))} <span class="muted" style="font-size:10px">lifetime</span></div>
+      <div class="lb-val" title="Net worth and cash invested in levels">${fmt(u.total + (u.levelSpent || 0))} <span class="muted" style="font-size:10px">lifetime</span></div>
       <div class="lb-act">
         ${isMe ? "" : `<button class="ghost lb-send" data-uid="${u.id}" data-name="${name}">${open ? "Cancel" : "Send ₡"}</button>`}
-        <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : lastSeenOf(u) ? "Last seen " + new Date(lastSeenOf(u)).toLocaleString() : "Never seen online"}"></span>
+        <span class="lb-dot ${online ? "on" : ""}" title="${online ? "Online now" : lastSeenOf(u) ? "Last seen " + new Date(lastSeenOf(u)).toLocaleString() : "Not seen online"}"></span>
       </div>
       ${tip}
     </div>

@@ -16,7 +16,7 @@ let firstLoad = true;
 let lastSentAt = 0;
 
 const MAX_LEN = 300;
-const PIX = 50;                       // 50x50 pixel doodle card
+const PIX = 64;                       // 64x64 pixel doodle card
 const IMG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 const PALETTE = ["#000000", "#ffffff", "#c0392b", "#e8a33d", "#e8d44d", "#5aa03c",
                  "#3aa6a6", "#3a6ea5", "#7d4fa5", "#d976a8", "#7a5230", "#8a9280"];

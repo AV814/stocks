@@ -810,3 +810,28 @@ header {
 }
 .in-idle, .in-over { font-size: 13px; line-height: 1.7; }
 .in-over { color: #7fffa8; }
+
+/* ---------- poker card flips ---------- */
+.pk-flip {
+  display: inline-block; position: relative;
+  width: 52px; height: 62px; margin: 0 3px;
+  transform-style: preserve-3d;
+  transform: rotateY(0deg);
+  animation: pk-open 0.45s ease forwards;
+  animation-fill-mode: backwards;
+  vertical-align: middle;
+}
+.pk-face {
+  position: absolute; inset: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  margin: 0 !important; width: 100% !important; height: 100% !important;
+}
+.pk-back {
+  background: var(--panel-2); color: var(--amber); font-size: 30px;
+  border: 2px solid; border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+}
+.pk-front { transform: rotateY(180deg); }
+@keyframes pk-open { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+.pk-msg-in { animation: pk-msg 0.3s ease backwards; }
+@keyframes pk-msg { from { opacity: 0; transform: translateY(4px); } }

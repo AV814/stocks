@@ -604,19 +604,41 @@ async function pkDouble() {
   pk.doubled = true;
   renderCasino();
 }
+const PK_KEY = "vapor-poker-pending";
+let pkRecovering = false;
+function recoverPoker() {
+  if (pkRecovering || !api.me?.()) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(PK_KEY) || "null"); }
+  catch { localStorage.removeItem(PK_KEY); return; }
+  if (!p || !(p.win > 0)) return;
+  pkRecovering = true;
+  api.settle(p.win, 0)
+    .then(() => { localStorage.removeItem(PK_KEY); api.toast("POKER", `Recovered an unpaid win of ${api.fmt(p.win)} from your last session.`); })
+    .catch(() => {})
+    .finally(() => { pkRecovering = false; });
+}
+
 async function pkDraw() {
   if (pk.phase !== "dealt") return;
+  pk.swapped = new Set(pk.discard);
   pk.hand = pk.hand.map((c, i) => pk.discard.has(i) ? pk.deck.pop() : c);
   pkDealerPlay();
   const mine = pkScore(pk.hand), house = pkScore(pk.dealer);
   const stake = pk.doubled ? pk.bet * 2 : pk.bet;
   const cmp = pkCmp(mine.s, house.s);
   pk.result = { mine, house };
+  // reveal choreography: swapped cards flip in, then the house flips
+  pk.revealBase = pk.swapped.size ? 0.55 : 0.15;
+  const revealDone = (pk.revealBase + 5 * 0.16 + 0.45) * 1000;
   if (cmp > 0) {
     pk.msg = `${mine.name} beats ${house.name} — you win ${api.fmt(stake * 2)}.`;
-    try { await api.settle(stake * 2, 0); }
-    catch (e) { pk.msg += " (Payout failed — refresh and check your cash.)"; }
-    if (mine.s[0] >= 5) api.toast("POKER", `${mine.name}! ${api.fmt(stake * 2)}`);
+    localStorage.setItem(PK_KEY, JSON.stringify({ win: stake * 2 }));   // survives a mid-reveal reload
+    setTimeout(async () => {
+      try { await api.settle(stake * 2, 0); localStorage.removeItem(PK_KEY); }
+      catch (e) { console.error("poker payout failed, recovery will retry", e); }
+    }, revealDone);
+    if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `${mine.name}! ${api.fmt(stake * 2)}`), revealDone);
   } else if (cmp === 0) {
     pk.msg = `Both show ${mine.name}. Ties go to the house. That's the edge.`;
   } else {
@@ -718,8 +740,17 @@ function renderCasino() {
   const lottoHtml = `${statLine("lotto")}<div id="lotto-root"></div>`;
 
   const pkLive = pk.phase === "dealt";
+  const pkFlip = (c, delay) => {
+    const red = c.s === "♥" || c.s === "♦";
+    return `<span class="pk-flip" style="animation-delay:${delay}s">
+      <span class="pk-face pk-back">🂠</span>
+      <span class="pk-face pk-front bj-card ${red ? "red" : ""}">${rName(c.r)}${c.s}</span>
+    </span>`;
+  };
   const pokerCard = (c, i, mineRow) => {
     const red = c.s === "♥" || c.s === "♦";
+    // freshly swapped cards flip in when the showdown renders
+    if (mineRow && pk.phase === "done" && pk.swapped?.has(i)) return pkFlip(c, i * 0.09);
     const disc = mineRow && pk.discard.has(i);
     return `<button class="bj-card pk-card ${red ? "red" : ""} ${disc ? "disc" : ""}" ${mineRow && pkLive ? `data-pk="${i}"` : ""}>${rName(c.r)}${c.s}</button>`;
   };
@@ -729,7 +760,7 @@ function renderCasino() {
       <div class="bj-table">
         <div class="bj-row">
           <span class="bj-label">House${pk.result ? " · " + pk.result.house.name : ""}</span>
-          <div>${pk.phase === "done" ? pk.dealer.map((c) => pokerCard(c, 0, false)).join("") :
+          <div>${pk.phase === "done" ? pk.dealer.map((c, i) => pkFlip(c, (pk.revealBase || 0.15) + i * 0.16)).join("") :
                  pkLive ? '<span class="bj-card back">🂠</span>'.repeat(5) : ""}</div>
         </div>
         <div class="bj-row">
@@ -746,7 +777,7 @@ function renderCasino() {
           <button class="btn-spin" id="pk-deal">Deal</button>
         `}
       </div>
-      <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") : ""}">${
+      <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") + " pk-msg-in" : ""}" ${pk.phase === "done" ? `style="animation-delay:${((pk.revealBase || 0.15) + 5 * 0.16 + 0.2).toFixed(2)}s"` : ""}>${
         pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the swap. Double down while the house is still face-down.` :
         pk.msg || "Five-card draw against the house. Even money, one swap, and ties go to the house."}</div>
     </div>`;
@@ -881,6 +912,7 @@ function renderCasino() {
   });
   watchCasinoStats();
   recoverRoulette();
+  recoverPoker();
   if (mode === "lotto") api.renderLotto();
 }
 

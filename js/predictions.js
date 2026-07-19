@@ -330,8 +330,8 @@ function renderAdmin() {
     <h3 class="sec">The House Desk</h3>
     <div class="adm-form">
       <div class="adm-type-row">
-        <button class="ghost ${draftType === "wager" ? "on" : ""}" data-ptype="wager">💰 Wager (players stake)</button>
-        <button class="ghost ${draftType === "free" ? "on" : ""}" data-ptype="free">🎁 Free pick (fixed reward)</button>
+        <button class="ghost ${draftType === "wager" ? "on" : ""}" data-ptype="wager">Wager</button>
+        <button class="ghost ${draftType === "free" ? "on" : ""}" data-ptype="free">Free</button>
       </div>
       <input id="adm-q" type="text" placeholder='e.g. "Will KRILLIUM survive the week?"' maxlength="140">
       <div id="adm-opts">

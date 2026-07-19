@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — trading floor chat
+   LWSTOCKS — trading floor chat
    One public room for everyone. Messages live in /chat with the
    last 50 streamed live. You can delete your own messages; the
    admin can delete anyone's. Presence shows who's on the floor.
@@ -228,8 +228,8 @@ export function renderChat() {
         <canvas id="chat-canvas" width="${PIX}" height="${PIX}"></canvas>
         <div class="chat-draw-side">
           <div class="chat-tools">
-            <button class="ghost on" id="chat-tool-brush" title="Brush">🖌</button>
-            <button class="ghost" id="chat-tool-fill" title="Fill bucket">🪣</button>
+            <button class="ghost on" id="chat-tool-brush" title="Brush">✎</button>
+            <button class="ghost" id="chat-tool-fill" title="Fill bucket">▨</button>
             <input type="color" id="chat-custom" value="#000000" title="Pick any color">
           </div>
           <label class="chat-size-l">Brush <span id="chat-size-v">1</span>px
@@ -245,7 +245,7 @@ export function renderChat() {
         </div>
       </div>
       <div class="chat-input-row">
-        <button class="ghost" id="chat-draw-btn" title="Draw a doodle">🎨</button>
+        <button class="ghost" id="chat-draw-btn" title="Draw a doodle">✎</button>
         <input id="chat-input" type="text" maxlength="${MAX_LEN}" placeholder="Say something…" autocomplete="off">
         <button class="btn-spin" id="chat-send">Send</button>
       </div>`;

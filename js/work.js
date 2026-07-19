@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — Vapor Industries Employment Office ("Work")
+   LWSTOCKS — LW Industries Employment Office ("Work")
    Three skill games that pay guaranteed wages, no house edge:
 
      Minesweeper — clear the board, get paid. Speed bonus.
@@ -122,8 +122,8 @@ function msHtml() {
     const open = ms.open.has(i), flag = ms.flags.has(i);
     const boom = ms.over && !ms.won && ms.mines?.has(i);
     let inner = "";
-    if (boom) inner = "💥";
-    else if (flag) inner = "🚩";
+    if (boom) inner = "✱";
+    else if (flag) inner = "⚑";
     else if (open) {
       const n = msCount(i);
       inner = n ? `<span style="color:${MS_COLORS[n]}">${n}</span>` : "";
@@ -133,8 +133,8 @@ function msHtml() {
   return `
     ${capLine("mines")}
     <div class="ms-bar">
-      <span class="muted" style="font-size:12px">💣 ${MS_MINES - ms.flags.size} left${ms.t0 && !ms.over ? " · " + Math.floor((Date.now() - ms.t0) / 1000) + "s" : ""}</span>
-      <button class="ghost ${ms.flagMode ? "on" : ""}" id="ms-flagmode">🚩 Flag mode</button>
+      <span class="muted" style="font-size:12px">Mines: ${MS_MINES - ms.flags.size}${ms.t0 && !ms.over ? " · " + Math.floor((Date.now() - ms.t0) / 1000) + "s" : ""}</span>
+      <button class="ghost ${ms.flagMode ? "on" : ""}" id="ms-flagmode">⚑ Flag mode</button>
       <button class="ghost" id="ms-new">New board</button>
     </div>
     <div class="ms-grid">${cells}</div>
@@ -223,7 +223,7 @@ function snHtml() {
   return `
     ${capLine("snake")}
     <div class="ms-bar">
-      <span class="muted" style="font-size:12px">🐍 <span id="sn-score">${snake?.score || 0}</span> pellets · ₡2 each, paid on crash</span>
+      <span class="muted" style="font-size:12px">Pellets: <span id="sn-score">${snake?.score || 0}</span> · ₡2 each, paid on crash</span>
       <button class="btn-spin" id="sn-start">${active ? "Restart" : "Start shift"}</button>
     </div>
     <canvas id="sn-canvas" width="${SN * SNAKE_CELL}" height="${SN * SNAKE_CELL}" class="sn-canvas"></canvas>
@@ -256,7 +256,7 @@ function hkLikeness(a, b) { let n = 0; for (let i = 0; i < Math.min(a.length, b.
 function hkNew() {
   const pool = [...HACK_WORDS].sort(() => Math.random() - 0.5).slice(0, 12);
   hack = { pw: pool[Math.floor(Math.random() * pool.length)], words: pool, tries: 4, log: [], done: false };
-  hkPrint("VAPOR INDUSTRIES (TM) TERMALINK PROTOCOL");
+  hkPrint("LW INDUSTRIES (TM) TERMALINK PROTOCOL");
   hkPrint("ENTER PASSWORD NOW — 4 ATTEMPT(S) LEFT");
   hkPrint("&nbsp;");
 }
@@ -624,7 +624,7 @@ function inHtml() {
         <div class="in-over">>>> ${intr.failWhy} — INTRUSION HALTED</div>
         <div class="in-over">>>> ${intr.streak} COMMANDS CLEARED · ${api.fmt(intr.score)} BANKED</div>
       ` : `
-        <div class="in-idle">>>> VAPOR INDUSTRIES INTRUSION SUITE</div>
+        <div class="in-idle">>>> LW INDUSTRIES INTRUSION SUITE</div>
         <div class="in-idle">>>> TYPE EACH COMMAND BEFORE THE BAR EMPTIES</div>
         <div class="in-idle">>>> WRONG KEY = ALARM. SPEED RAMPS WITH YOUR STREAK.</div>
       `}
@@ -640,7 +640,7 @@ export function renderWork() {
   if (!el) return;
   el.innerHTML = `
     <div class="casino-head">
-      <h3 class="sec" style="margin:0">Vapor Industries — Employment Office</h3>
+      <h3 class="sec" style="margin:0">LW Industries — Employment Office</h3>
       <div class="casino-tabs">
         <button data-wmode="mines" class="${mode === "mines" ? "active" : ""}">Minesweeper</button>
         <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">Snake</button>

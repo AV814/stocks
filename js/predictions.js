@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — prediction markets
+   LWSTOCKS — prediction markets
    Admin (ADMIN_UID) creates questions with per-option payout
    multipliers, then locks/resolves/voids them. Players stake
    credits on one option per question. Payouts are claimed by
@@ -356,7 +356,7 @@ function renderAdmin() {
         <button class="btn-spin" id="adm-create">Post prediction</button>
       </div>
       <p class="muted" style="font-size:12px">${draftType === "wager"
-        ? "Multiplier = total payout per credit staked (a 2x winner turns ₡100 into ₡200). Losing stakes are burned — winners are paid from thin air, house-of-vapor style."
+        ? "Multiplier = total payout per credit staked (a 2x winner turns ₡100 into ₡200). Losing stakes are burned — winners are paid from thin air, house style."
         : "Free picks cost nothing to enter. Everyone who picked the winning option gets the reward; wrong picks lose nothing. Pure credit faucet with a quiz attached."}</p>
     </div>
     ${preds.map(admCard).join("") || `<p class="muted">No predictions yet.</p>`}
@@ -536,7 +536,7 @@ function dangerZone() {
       ${RESETS.map((r) => `<button class="ghost danger" data-reset="${r.id}" ${resetBusy ? "disabled" : ""}>Reset ${r.label}</button>`).join("")}
     </div>
     <div class="adm-form-actions" style="margin-top:12px">
-      <button class="ghost danger" id="reset-all" ${resetBusy ? "disabled" : ""} style="font-weight:700">☢ RESET EVERYTHING</button>
+      <button class="ghost danger" id="reset-all" ${resetBusy ? "disabled" : ""} style="font-weight:700">!! RESET EVERYTHING</button>
     </div>
     <p class="muted" style="font-size:12px">${resetBusy ? "Working — don't close this tab…" : "Every reset asks you to type RESET first. Player reset keeps names and avatars but returns everyone to ₡1,000 with no holdings, stats, or claim history. The market roster itself is untouched — the stocks and their history are deterministic and carry on."}</p>
   </div>`;

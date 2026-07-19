@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — casino module (slots + blackjack)
+   LWSTOCKS — casino module (slots + blackjack)
    Pure client-side games. Cash moves via api.settle(), which
    runs a Firestore transaction on the player's own user doc.
    ============================================================ */
@@ -12,12 +12,12 @@ let mode = "slots";      // slots | blackjack | roulette | scratch | keno | lott
 
 /* ================= SLOTS =================
    Weighted reels, ~91% RTP:
-   7-7-7 50x · 💎💎💎 25x · 🔔🔔🔔 12x · ⭐⭐⭐ 8x
-   🍋🍋🍋 6x · 🍒🍒🍒 5x · two 🍒 2x · one 🍒 0.5x        */
+   7-7-7 50x · ◆◆◆ 25x · §§§ 12x · ★★★ 8x
+   ¤¤¤ 6x · $$$ 5x · two $ 2x · one $ 0.5x        */
 
 const SYMBOLS = [
-  { s: "🍒", w: 30 }, { s: "🍋", w: 20 }, { s: "⭐", w: 18 },
-  { s: "🔔", w: 14 }, { s: "💎", w: 10 }, { s: "7️⃣", w: 8 }
+  { s: "$", w: 30 }, { s: "¤", w: 20 }, { s: "★", w: 18 },
+  { s: "§", w: 14 }, { s: "◆", w: 10 }, { s: "7", w: 8 }
 ];
 const REEL_TOTAL = SYMBOLS.reduce((a, x) => a + x.w, 0);
 
@@ -29,16 +29,16 @@ function spinSymbol() {
 function slotPayout(reels, bet) {
   const [a, b, c] = reels;
   if (a === b && b === c) {
-    const mult = { "7️⃣": 50, "💎": 25, "🔔": 12, "⭐": 8, "🍋": 6, "🍒": 5 }[a] || 0;
+    const mult = { "7": 50, "◆": 25, "§": 12, "★": 8, "¤": 6, "$": 5 }[a] || 0;
     return { mult, label: `Triple ${a}` };
   }
-  const cherries = reels.filter((s) => s === "🍒").length;
+  const cherries = reels.filter((s) => s === "$").length;
   if (cherries === 2) return { mult: 2, label: "Two cherries" };
   if (cherries === 1) return { mult: 0.5, label: "One cherry" };
   return { mult: 0, label: null };
 }
 
-const slots = { reels: ["🍒", "🍋", "⭐"], spinning: false, lastResult: null, bet: 10 };
+const slots = { reels: ["$", "¤", "★"], spinning: false, lastResult: null, bet: 10 };
 const SLOT_KEY = "vapor-slots-pending";
 let slotsRecovering = false;
 function recoverSlots() {
@@ -109,13 +109,13 @@ async function doSpin() {
    Find three matching symbols on a 3x3 grid to win that prize. */
 
 const SCRATCH_TIERS = [
-  { id: "bucks",   name: "Vapor Bucks",   price: 10,  hue: "#8bd450" },
+  { id: "bucks",   name: "LW Bucks",   price: 10,  hue: "#8bd450" },
   { id: "neon",    name: "Neon Fortune",  price: 50,  hue: "#e8a33d" },
   { id: "heist",   name: "Diamond Heist", price: 250, hue: "#7ec8e3" }
 ];
 const SCRATCH_LADDER = [[1, 0.12], [2, 0.06], [5, 0.024], [20, 0.006], [100, 0.0012], [1000, 0.00012]];
-const PRIZE_SYM = { 1: "🍀", 2: "💰", 5: "🔔", 20: "💎", 100: "🚀", 1000: "👑" };
-const DUD_SYMS = ["🌫️", "🧦", "🥫", "🪫", "📉", "🃏"];
+const PRIZE_SYM = { 1: "♣", 2: "$", 5: "§", 20: "◆", 100: "↑", 1000: "♛" };
+const DUD_SYMS = ["~", "%", "#", "!", "↓", "?"];
 
 let scratch = null; // { tier, grid, mult, prize, winSym, revealed:Set, done }
 
@@ -530,7 +530,7 @@ function bumpStat(game) {
   const uid = api.me?.()?.uid;
   if (uid) setDoc(doc(api.db, "users", uid), { gameStats: { [game]: increment(1) } }, { merge: true }).catch(() => {});
 }
-const statLine = (game) => `<div class="keno-stat">🎲 <span data-stat="${game}">${(gameStats[game] || 0).toLocaleString("en-US")}</span> ${STAT_LABEL[game]} played all-time</div>`;
+const statLine = (game) => `<div class="keno-stat"><span data-stat="${game}">${(gameStats[game] || 0).toLocaleString("en-US")}</span> ${STAT_LABEL[game]} played all-time</div>`;
 let kenoTickets = [];       // [{ round, picks, bet, paid, payout, hits }]
 
 const kenoRound = () => Math.floor(Date.now() / KENO_MS);
@@ -805,11 +805,11 @@ async function pkDraw() {
 
 /* ================= RENDER ================= */
 function cardHtml(c, hidden, delay) {
-  if (hidden) return `<span class="bj-card back">🂠</span>`;
+  if (hidden) return `<span class="bj-card back">▚</span>`;
   const red = c.s === "♥" || c.s === "♦";
   if (delay !== undefined && delay !== null) {
     return `<span class="pk-flip" style="animation-delay:${delay.toFixed(2)}s">
-      <span class="pk-face pk-back">🂠</span>
+      <span class="pk-face pk-back">▚</span>
       <span class="pk-face pk-front bj-card ${red ? "red" : ""}">${c.r}${c.s}</span>
     </span>`;
   }
@@ -839,8 +839,8 @@ function renderCasino() {
           : "Place a bet and spin."}
       </div>
       <div class="paytable">
-        <div>7️⃣7️⃣7️⃣ 50x</div><div>💎💎💎 25x</div><div>🔔🔔🔔 12x</div><div>⭐⭐⭐ 8x</div>
-        <div>🍋🍋🍋 6x</div><div>🍒🍒🍒 5x</div><div>🍒🍒 2x</div><div>🍒 0.5x</div>
+        <div>777 50x</div><div>◆◆◆ 25x</div><div>§§§ 12x</div><div>★★★ 8x</div>
+        <div>¤¤¤ 6x</div><div>$$$ 5x</div><div>$$ 2x</div><div>$ 0.5x</div>
       </div>
     </div>`;
 
@@ -917,7 +917,7 @@ function renderCasino() {
   const pkFlip = (c, delay) => {
     const red = c.s === "♥" || c.s === "♦";
     return `<span class="pk-flip" style="animation-delay:${delay}s">
-      <span class="pk-face pk-back">🂠</span>
+      <span class="pk-face pk-back">▚</span>
       <span class="pk-face pk-front bj-card ${red ? "red" : ""}">${rName(c.r)}${c.s}</span>
     </span>`;
   };
@@ -942,7 +942,7 @@ function renderCasino() {
                    }
                    return `<span class="${dim}" style="display:inline-block">${pkFlip(c, (pk.revealBase || 0.15) + i * 0.16)}</span>`;
                  }).join("") :
-                 pkLive ? '<span class="bj-card back">🂠</span>'.repeat(5) : ""}</div>
+                 pkLive ? '<span class="bj-card back">▚</span>'.repeat(5) : ""}</div>
         </div>
         <div class="bj-row">
           <span class="bj-label">You${pk.result ? " · " + pk.result.mine.name : ""}${pk.doubled ? " (doubled)" : ""}</span>
@@ -1041,7 +1041,7 @@ function renderCasino() {
 
   el.innerHTML = `
     <div class="casino-head">
-      <h3 class="sec" style="margin:0">The Vapor Lounge</h3>
+      <h3 class="sec" style="margin:0">The LW Lounge</h3>
       <div class="casino-tabs">
         <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
         <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>

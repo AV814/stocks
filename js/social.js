@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — social module
+   LWSTOCKS — social module
    1) Profile pictures: resized client-side to a 96px square
       JPEG data URL and stored on the user doc (no Firebase
       Storage needed — Spark tier friendly, ~5-10KB per avatar).

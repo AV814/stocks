@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — deterministic market engine
+   LWSTOCKS — deterministic market engine
    Every price is a pure function of (stockSeed, timestamp).
    All clients compute identical prices with zero server calls.
    ============================================================ */

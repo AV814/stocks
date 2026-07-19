@@ -1,4 +1,4 @@
-/* VAPORSTOCKS — after-hours trading floor
+/* LWSTOCKS — after-hours trading floor
    ink navy / ticker-paper cream / amber breaking / green-red data */
 :root {
   --ink: #0e1220;
@@ -416,7 +416,7 @@ h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; colo
 .scratch-buy:hover { background: var(--panel-2); }
 .scratch-buy .muted { font-size: 11px; font-family: var(--mono); }
 
-/* ---------- VaporBall lottery ---------- */
+/* ---------- LWBall lottery ---------- */
 .lotto-jackpot {
   text-align: center; background: var(--panel); border: 1px solid var(--amber);
   border-radius: 10px; padding: 20px; margin-bottom: 14px;
@@ -839,7 +839,7 @@ header {
 /* poker: the house's unused 6th card */
 .pk-unused { opacity: 0.35; }
 
-/* ---------- Vapor Tower raids ---------- */
+/* ---------- LW Tower raids ---------- */
 .rd-shop-h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--amber); margin: 12px 0 6px; text-transform: uppercase; }
 .rd-diffs, .rd-gear { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .rd-diff, .rd-item {

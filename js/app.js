@@ -19,7 +19,6 @@ import { initSocial } from "./social.js";
 import { initLottery, nyDay } from "./lottery.js";
 import { initChat } from "./chat.js";
 import { initWork } from "./work.js";
-import { initRaid } from "./raid.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -125,12 +124,6 @@ const work = initWork({
   me: () => me,
   myDoc: () => myDoc,
   el: () => $("#view-work")
-});
-const raid = initRaid({
-  db, fmt, toast, settle,
-  me: () => me,
-  myDoc: () => myDoc,
-  el: () => $("#view-raid")
 });
 
 /* ================= AUTH ================= */
@@ -357,7 +350,7 @@ document.querySelectorAll(".tab").forEach((b) =>
 );
 
 function showView(id) {
-  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "work", "raid", "admin"].forEach((v) =>
+  ["market", "stock", "portfolio", "news", "leaderboard", "casino", "predict", "chat", "work", "admin"].forEach((v) =>
     $(`#view-${v}`).classList.toggle("hidden", v !== id)
   );
 }
@@ -391,7 +384,6 @@ function render() {
   else if (view === "predict") predictions.renderPredictions();
   else if (view === "chat") chat.renderChat();
   else if (view === "work") work.renderWork();
-  else if (view === "raid") raid.renderRaid();
   if (view !== "work") work.stop();   // pause snake instead of letting it die offscreen
   else if (view === "admin") predictions.renderAdmin();
 }
@@ -614,7 +606,7 @@ function currentNews() {
 }
 function renderNews() {
   const items = currentNews();
-  $("#view-news").innerHTML = `<h3 class="sec">The Vapor Journal</h3>` + items.map((n) => `
+  $("#view-news").innerHTML = `<h3 class="sec">The LW Journal</h3>` + items.map((n) => `
     <div class="news-item ${n.bucket}">
       <div class="news-time">${new Date(n.time).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
       <div class="news-tk">${n.ticker}</div>
@@ -798,7 +790,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"],["raid","Tower Raids"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

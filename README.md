@@ -1,4 +1,4 @@
-# VAPORSTOCKS
+# LWSTOCKS
 
 A fake-stock trading game for a friendly competition. Static site (GitHub Pages) + Firebase for auth and shared state. No server, no billing plan required — everything runs on the Firebase free (Spark) tier.
 
@@ -59,14 +59,14 @@ Payout mechanics: when a question resolves, each winner's own browser claims the
 The Admin tab includes a Treasury panel listing every player with their cash balance and Add / Remove / Set controls. Adjustments touch cash only (holdings are never modified), can't take anyone negative, are logged to the `transfers` feed as THE HOUSE, and toast the player if they're online. Enforced by an admin-only branch in the Firestore rules.
 
 
-## The Vapor Lounge extras
+## The LW Lounge extras
 
-**Scratchers** — instant tickets at three price points (Vapor Bucks ₡10, Neon Fortune ₡50, Diamond Heist ₡250). Scratch a 3x3 grid by clicking or dragging; three matching symbols wins that prize, up to 1000x. About 1 in 5 tickets wins something; overall return is ~72%.
+**Scratchers** — instant tickets at three price points (LW Bucks ₡10, Neon Fortune ₡50, Diamond Heist ₡250). Scratch a 3x3 grid by clicking or dragging; three matching symbols wins that prize, up to 1000x. About 1 in 5 tickets wins something; overall return is ~72%.
 
-**VaporBall** — a nightly Powerball-style lottery. Pick 4 numbers (1-20) plus a VaporBall (1-5), ₡25 per ticket, draws every night at midnight ET (05:00 UTC). The winning numbers are a pure function of the draw index using the same deterministic PRNG as stock prices, so every client computes the identical draw and nobody — including the admin — can rig or predict it. The jackpot starts at ₡1,000, grows by a quarter of every ticket sold, and rolls over when nobody hits 4+VaporBall (co-winners split the pot). Settlement and prize claims use the same client-maintenance pattern as the market: the first browser to notice a completed draw does the bookkeeping (claims are checked for the past 7 draws, so nobody loses a prize by being offline a few days), and each winner's own client credits their prizes.
+**LWBall** — a nightly Powerball-style lottery. Pick 4 numbers (1-20) plus a LWBall (1-5), ₡25 per ticket, draws every night at midnight ET (05:00 UTC). The winning numbers are a pure function of the draw index using the same deterministic PRNG as stock prices, so every client computes the identical draw and nobody — including the admin — can rig or predict it. The jackpot starts at ₡1,000, grows by a quarter of every ticket sold, and rolls over when nobody hits 4+LWBall (co-winners split the pot). Settlement and prize claims use the same client-maintenance pattern as the market: the first browser to notice a completed draw does the bookkeeping (claims are checked for the past 7 draws, so nobody loses a prize by being offline a few days), and each winner's own client credits their prizes.
 
 
-## More Vapor Lounge games & governance
+## More LW Lounge games & governance
 
 **Five-Card Draw Poker** (casino) — heads-up against the house. Bet, receive five cards, optionally double down while the dealer is still face-down, mark any cards to discard, then draw and show down. The dealer draws on a sensible strategy. Wins pay 1.95x the stake, and doubling down buys the house a sixth card (it plays its best five of six) — sim-tuned to roughly 50/50 overall (~1% house). Card flips animate on the swap and showdown, in blackjack too.
 
@@ -111,12 +111,9 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 Work plays are counted in the same global and per-player stat counters as casino games.
 
 
-## Vapor Tower (Raid tab)
-
-A text-adventure roguelike and the game's biggest repeatable money loop. Sign a contract at one of three difficulties (entry ₡50/₡150/₡400, paying ₡160/₡520/₡1,500), buy per-run gear in the shop — weapons, armor, Vitality Smoothies — then fight turn-by-turn through four floors of corporate security with supply crates between fights (cash, potions, attack buffs, or the occasional trap), and take the boss in the penthouse for the payout. Combat is intent-based: every enemy telegraphs its next move, and Block (70% reduction plus a riposte) is the answer to telegraphed slams and charged nukes. Enemies come in archetypes (brutes, twins, guards, leeches, bombers), bosses enrage at half health, weapons carry traits (crit, armor-pierce, stun, bleed), items include Health Potions, Adrenaline, and EMP Grenades, and Supply Offices offer pick-1-of-3 perk drafts between fights. Death or fleeing forfeits the entry and gear; gear never carries between runs, so every attempt demands fresh investment. Runs persist through reloads, and payouts are crash-safe. Timing note: everything scheduled at "midnight ET" (Powerball draw, daily bonus, work caps) now uses true America/New_York midnight, DST-proof.
-
-
 ## Recent additions
+
+- **Rebrand**: all visible Vapor branding is now LW (LWSTOCKS, LW Lounge, LWBall, LW Industries, LW Journal, LW Bucks). Internal localStorage keys keep their old `vapor-` prefixes on purpose so nobody's pending payouts or in-flight keno cards are orphaned by the rename. All emoji were replaced with text glyphs (slots: $ ¤ § ★ ◆ 7; card backs ▚; flags ⚑; balls ●). The Raid tab has been removed for now.
 
 - **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
 - **Passive dividends**: holdings pay 0.02% of their current value every 10 minutes (each payout rounded to the cent), landing on shared wall-clock boundaries (:00, :10, :20…) for everyone at once, accruing while offline (capped at 48 hours). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.

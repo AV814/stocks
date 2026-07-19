@@ -1,5 +1,5 @@
 /* ============================================================
-   VAPORSTOCKS — VaporBall nightly lottery
+   LWSTOCKS — LWBall nightly lottery
    Pick 4 numbers (1-20) + a PowerBall (1-5). ₡25 a ticket.
    Draws every night at 05:00 UTC (midnight EST / 1 AM EDT).
 
@@ -163,7 +163,7 @@ async function settleWeek(w) {
     return true;
   });
   if (didSettle && winnersCount === 0 && (snap.data().sales || 0) > 0) {
-    api.toast("VAPORBALL", `No jackpot winner last night — ${api.fmt(snap.data().pot || BASE_POT)} rolls over!`);
+    api.toast("LWBALL", `No jackpot winner last night — ${api.fmt(snap.data().pot || BASE_POT)} rolls over!`);
   }
 }
 
@@ -191,8 +191,8 @@ async function claimWeek(w) {
       if (isJackpot(tDoc.data(), draw)) jackpot = true;
     }
   }
-  if (jackpot) api.toast("💥 JACKPOT 💥", `You hit the VaporBall! ${api.fmt(won)} claimed.`);
-  else if (won > 0) api.toast("VAPORBALL WINNER", `Last night’s draw paid you ${api.fmt(won)}.`);
+  if (jackpot) api.toast("✱ JACKPOT ✱", `You hit the LWBall! ${api.fmt(won)} claimed.`);
+  else if (won > 0) api.toast("LWBALL WINNER", `Last night’s draw paid you ${api.fmt(won)}.`);
 }
 
 async function loadMine() {
@@ -254,7 +254,7 @@ async function buySlip() {
     });
     setDoc(doc(api.db, "market", "casinoStats"), { lotto: increment(slip.length) }, { merge: true }).catch(() => {});
     setDoc(doc(api.db, "users", uid), { gameStats: { lotto: increment(slip.length) } }, { merge: true }).catch(() => {});
-    api.toast("Tickets in", `${slip.length} VaporBall ticket${slip.length > 1 ? "s" : ""} for ${api.fmt(cost)}. Draw ${drawCountdown()}.`);
+    api.toast("Tickets in", `${slip.length} LWBall ticket${slip.length > 1 ? "s" : ""} for ${api.fmt(cost)}. Draw ${drawCountdown()}.`);
     slip = [];
     await loadMine();
   } catch (e) { alert(e.message); }
@@ -305,13 +305,13 @@ export function renderLotto() {
     <div class="lotto-jackpot">
       <div class="lotto-pot-label">TONIGHT'S JACKPOT</div>
       <div class="lotto-pot">${api.fmt(pot)}</div>
-      <div class="muted" style="font-size:12px">Nightly draw at midnight ET · ${drawCountdown()} · match 4 + the VaporBall · ₡${TICKET}/ticket · a quarter of every ticket feeds the pot · no winner = rollover</div>
+      <div class="muted" style="font-size:12px">Nightly draw at midnight ET · ${drawCountdown()} · match 4 + the LWBall · ₡${TICKET}/ticket · a quarter of every ticket feeds the pot · no winner = rollover</div>
     </div>
 
     <div class="lotto-pickbox">
       <div class="muted" style="font-size:12px;margin-bottom:6px">Pick ${PICKS} numbers</div>
       <div class="pick-grid">${pickGrid}</div>
-      <div class="muted" style="font-size:12px;margin:8px 0 6px">…and one VaporBall</div>
+      <div class="muted" style="font-size:12px;margin:8px 0 6px">…and one LWBall</div>
       <div class="pick-row">${pbRow}</div>
       <div class="casino-controls" style="margin-top:12px">
         <button class="ghost" id="lt-qp">Quick pick</button>
@@ -331,8 +331,8 @@ export function renderLotto() {
 
     ${lastHtml}
     <div class="paytable" style="margin-top:16px">
-      <div>4+🎱 JACKPOT</div><div>4 ₡5,000</div><div>3+🎱 ₡1,000</div><div>3 ₡200</div>
-      <div>2+🎱 ₡100</div><div>1+🎱 ₡50</div><div>🎱 ₡25</div>
+      <div>4+● JACKPOT</div><div>4 ₡5,000</div><div>3+● ₡1,000</div><div>3 ₡200</div>
+      <div>2+● ₡100</div><div>1+● ₡50</div><div>● ₡25</div>
     </div>`;
 
   root.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => {

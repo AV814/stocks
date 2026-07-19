@@ -168,7 +168,7 @@ function updateLog() {
   const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   log.innerHTML = msgs.length
     ? msgs.map(msgHtml).join("")
-    : `<p class="muted" style="text-align:center;padding:30px 0">Nothing yet. Say something regrettable.</p>`;
+    : `<p class="muted" style="text-align:center;padding:30px 0">No current chats.</p>`;
   log.querySelectorAll("[data-del]").forEach((b) =>
     b.addEventListener("click", () => { if (confirm("Delete this message?")) removeMsg(b.dataset.del); }));
   if (nearBottom || firstLoad) log.scrollTop = log.scrollHeight;

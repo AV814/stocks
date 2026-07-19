@@ -675,7 +675,7 @@ const divRate = (impact) => 0.05 + Math.min(Math.abs(impact), 1) * 0.05;
    accruing while offline (capped at 48h of accrual so a month away
    doesn't mint a fortune in one click). Missed intervals are valued
    at the current price. Separate cursor from the news dividends. */
-const PASSIVE_RATE = 0.01, PASSIVE_MS = 600000, PASSIVE_CAP = 288;   // 288 intervals = 48h
+const PASSIVE_RATE = 0.0002, PASSIVE_MS = 600000, PASSIVE_CAP = 288;   // 0.02% per tick; 288 ticks = 48h
 let passiveBusy = false;
 async function checkPassiveDividends() {
   if (passiveBusy || !me || !myDoc || !market) return;
@@ -683,8 +683,11 @@ async function checkPassiveDividends() {
   try {
     const nowT = Date.now();
     const last = myDoc.lastPassiveDivAt;
-    if (!last) { await updateDoc(doc(db, "users", me.uid), { lastPassiveDivAt: nowT }); return; }
-    const n = Math.min(PASSIVE_CAP, Math.floor((nowT - last) / PASSIVE_MS));
+    // payouts land on shared wall-clock boundaries (…:10, :20, :30 for
+    // everyone at once), tracked as the last-paid boundary timestamp
+    const curTick = Math.floor(nowT / PASSIVE_MS);
+    if (!last) { await updateDoc(doc(db, "users", me.uid), { lastPassiveDivAt: curTick * PASSIVE_MS }); return; }
+    const n = Math.min(PASSIVE_CAP, curTick - Math.floor(last / PASSIVE_MS));
     if (n < 1) return;
     const holdings = myDoc.holdings || {};
     let perTick = 0;
@@ -694,8 +697,9 @@ async function checkPassiveDividends() {
       const px = engine.price(st, nowT);
       if (px !== null) perTick += sh * px * PASSIVE_RATE;
     }
+    perTick = Math.round(perTick * 100) / 100;          // each payout rounds to the cent
     const total = Math.round(perTick * n * 100) / 100;
-    const newCursor = last + n * PASSIVE_MS;
+    const newCursor = curTick * PASSIVE_MS;
     await runTransaction(db, async (tx) => {
       const ref = doc(db, "users", me.uid);
       const snap = await tx.get(ref);

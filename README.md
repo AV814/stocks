@@ -95,7 +95,7 @@ Hovering a name on the leaderboard (tap on mobile) opens a stat card: their curr
 
 ## Trading floor chat
 
-The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. The 🎨 button opens a doodle pad: a 50x50 pixel canvas with a 12-color palette — draw and upload straight into the chat as a crisp pixel-art card. Enforced in the rules: authors post as themselves, messages are text (500-char cap) or a small PNG doodle (12KB cap).
+The Chat tab is one public room for everyone: last 50 messages streamed live, avatars, an online count from presence, and an unread dot on the tab when messages arrive while you're elsewhere. You can delete your own messages; the admin can delete anyone's. The 🎨 button opens a doodle pad: a 50x50 pixel canvas with brush and fill-bucket tools, a 1-4px brush size slider, a 12-color palette plus a full-spectrum color picker — draw and upload straight into the chat as a crisp pixel-art card. Enforced in the rules: authors post as themselves, messages are text (500-char cap) or a small PNG doodle (12KB cap).
 
 
 ## Work (guaranteed wages)
@@ -119,7 +119,7 @@ A text-adventure roguelike and the game's biggest repeatable money loop. Sign a 
 ## Recent additions
 
 - **Sell everything** button on the Portfolio tab liquidates all positions at market in one transaction (with a confirmation breakdown).
-- **Passive dividends**: holdings pay 1% of their current value every 10 minutes, accruing while offline (capped at 48 hours of accrual). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.
+- **Passive dividends**: holdings pay 0.02% of their current value every 10 minutes (each payout rounded to the cent), landing on shared wall-clock boundaries (:00, :10, :20…) for everyone at once, accruing while offline (capped at 48 hours). Returning after a gap shows a "while you were away" toast with the total. News-event dividends still pay on top.
 - **Keno**: draws every 90 seconds now. Buy multi-game cards — the same picks and bet across up to 50 consecutive draws, paid per draw with a running total, plus a detailed per-game report (your picks with hits highlighted, multiplier, net, and card progress).
 - **Admin Danger Zone**: per-system resets (chat, predictions, Powerball, transfer log, game counters, players back to ₡1,000) and a RESET EVERYTHING button, each requiring typed confirmation. Requires the widened admin rules branch.
 

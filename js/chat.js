@@ -22,6 +22,8 @@ const PALETTE = ["#000000", "#ffffff", "#c0392b", "#e8a33d", "#e8d44d", "#5aa03c
                  "#3aa6a6", "#3a6ea5", "#7d4fa5", "#d976a8", "#7a5230", "#8a9280"];
 let drawColor = "#000000";
 let drawOpen = false;
+let brushSize = 1;          // 1-4 pixel square brush
+let drawTool = "brush";     // "brush" | "fill"
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -97,8 +99,37 @@ function pxOf(cv, clientX, clientY) {
   };
 }
 function plot(ctx, x, y) {
+  const off = Math.floor((brushSize - 1) / 2);
+  const px = Math.max(0, Math.min(PIX - brushSize, x - off));
+  const py = Math.max(0, Math.min(PIX - brushSize, y - off));
   if (x < 0 || x >= PIX || y < 0 || y >= PIX) return;
-  ctx.fillRect(x, y, 1, 1);
+  ctx.fillRect(px, py, brushSize, brushSize);
+}
+
+// bucket tool: exact-color flood fill from the clicked pixel
+function floodFill(cv, e) {
+  const { x, y } = pxOf(cv, e.clientX, e.clientY);
+  if (x < 0 || x >= PIX || y < 0 || y >= PIX) return;
+  const ctx = cv.getContext("2d");
+  const img = ctx.getImageData(0, 0, PIX, PIX);
+  const d = img.data;
+  const at = (px, py) => (py * PIX + px) * 4;
+  const t = at(x, y);
+  const [tr, tg, tb, ta] = [d[t], d[t + 1], d[t + 2], d[t + 3]];
+  // parse the current color to rgb
+  const m = drawColor.match(/^#(..)(..)(..)$/);
+  const [nr, ng, nb] = [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  if (tr === nr && tg === ng && tb === nb && ta === 255) return;   // already that color
+  const stack = [[x, y]];
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    if (cx < 0 || cx >= PIX || cy < 0 || cy >= PIX) continue;
+    const i = at(cx, cy);
+    if (d[i] !== tr || d[i + 1] !== tg || d[i + 2] !== tb || d[i + 3] !== ta) continue;
+    d[i] = nr; d[i + 1] = ng; d[i + 2] = nb; d[i + 3] = 255;
+    stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+  }
+  ctx.putImageData(img, 0, 0);
 }
 // Bresenham line so fast strokes leave no gaps between sampled points
 function plotLine(ctx, x0, y0, x1, y1) {
@@ -189,6 +220,14 @@ export function renderChat() {
       <div id="chat-draw-panel" class="chat-draw hidden">
         <canvas id="chat-canvas" width="${PIX}" height="${PIX}"></canvas>
         <div class="chat-draw-side">
+          <div class="chat-tools">
+            <button class="ghost on" id="chat-tool-brush" title="Brush">🖌</button>
+            <button class="ghost" id="chat-tool-fill" title="Fill bucket">🪣</button>
+            <input type="color" id="chat-custom" value="#000000" title="Pick any color">
+          </div>
+          <label class="chat-size-l">Brush <span id="chat-size-v">1</span>px
+            <input type="range" id="chat-size" min="1" max="4" step="1" value="1">
+          </label>
           <div class="chat-palette">
             ${PALETTE.map((c) => `<button class="chat-swatch ${c === drawColor ? "on" : ""}" data-col="${c}" style="background:${c}"></button>`).join("")}
           </div>
@@ -213,12 +252,34 @@ export function renderChat() {
     el.querySelectorAll(".chat-swatch").forEach((b) =>
       b.addEventListener("click", () => {
         drawColor = b.dataset.col;
+        el.querySelector("#chat-custom").value = b.dataset.col;
         el.querySelectorAll(".chat-swatch").forEach((x) => x.classList.toggle("on", x === b));
       }));
+    el.querySelector("#chat-custom").addEventListener("input", (e) => {
+      drawColor = e.target.value;
+      el.querySelectorAll(".chat-swatch").forEach((x) => x.classList.remove("on"));
+    });
+    const toolBtns = { brush: el.querySelector("#chat-tool-brush"), fill: el.querySelector("#chat-tool-fill") };
+    const setTool = (t) => {
+      drawTool = t;
+      toolBtns.brush.classList.toggle("on", t === "brush");
+      toolBtns.fill.classList.toggle("on", t === "fill");
+    };
+    toolBtns.brush.addEventListener("click", () => setTool("brush"));
+    toolBtns.fill.addEventListener("click", () => setTool("fill"));
+    el.querySelector("#chat-size").addEventListener("input", (e) => {
+      brushSize = Number(e.target.value);
+      el.querySelector("#chat-size-v").textContent = brushSize;
+    });
     const cv = el.querySelector("#chat-canvas");
     clearCanvas();
-    cv.addEventListener("pointerdown", (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); paintAt(cv, e, true); });
-    cv.addEventListener("pointermove", (e) => { if (e.buttons & 1) paintAt(cv, e); });
+    cv.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      if (drawTool === "fill") { floodFill(cv, e); return; }
+      cv.setPointerCapture(e.pointerId);
+      paintAt(cv, e, true);
+    });
+    cv.addEventListener("pointermove", (e) => { if (drawTool === "brush" && (e.buttons & 1)) paintAt(cv, e); });
     cv.addEventListener("pointerup", () => { lastPx = null; });
   }
   updateLog();

@@ -894,3 +894,14 @@ header {
   font-size: 13px;
 }
 .keno-report-row > span:first-child { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); min-width: 84px; }
+
+/* chat paint tools */
+.chat-tools { display: flex; gap: 6px; align-items: center; }
+.chat-tools .ghost { font-size: 15px; padding: 5px 10px; }
+.chat-tools .ghost.on { background: var(--select) !important; }
+#chat-custom {
+  width: 36px; height: 30px; padding: 2px !important; cursor: pointer;
+  background: var(--ink) !important;
+}
+.chat-size-l { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); display: block; }
+#chat-size { width: 110px; vertical-align: middle; margin-left: 6px; }

@@ -642,11 +642,11 @@ export function renderWork() {
     <div class="casino-head">
       <h3 class="sec" style="margin:0">Vapor Industries — Employment Office</h3>
       <div class="casino-tabs">
-        <button data-wmode="mines" class="${mode === "mines" ? "active" : ""}">💣 Minesweeper</button>
-        <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">🐍 Snake</button>
-        <button data-wmode="hack" class="${mode === "hack" ? "active" : ""}">💻 Hack</button>
-        <button data-wmode="pipes" class="${mode === "pipes" ? "active" : ""}">🔧 Pipes</button>
-        <button data-wmode="intrusion" class="${mode === "intrusion" ? "active" : ""}">⌨️ Intrusion</button>
+        <button data-wmode="mines" class="${mode === "mines" ? "active" : ""}">Minesweeper</button>
+        <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">Snake</button>
+        <button data-wmode="hack" class="${mode === "hack" ? "active" : ""}">Hack</button>
+        <button data-wmode="pipes" class="${mode === "pipes" ? "active" : ""}">Pipes</button>
+        <button data-wmode="intrusion" class="${mode === "intrusion" ? "active" : ""}">Typing</button>
       </div>
     </div>
     <div class="casino-panel ${mode === "hack" || mode === "intrusion" ? "hk-panel" : ""}">

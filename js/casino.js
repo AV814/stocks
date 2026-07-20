@@ -581,7 +581,7 @@ async function kenoBuy() {
   });
   kenoPicks = [];
   kenoSave();
-  api.toast("Keno card in", games > 1
+  api.toast("Keno Card Purchased", games > 1
     ? `${games} games at ${api.fmt(bet)} each (${api.fmt(cost)}). First draw ${kenoCountdown()}.`
     : `Plays the draw in ${kenoCountdown()}.`);
   renderCasino();

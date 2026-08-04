@@ -982,3 +982,72 @@ nav.tabs, .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar
 
 /* compact arrow news */
 .news-ind { font-family: var(--mono); font-weight: 700; font-size: 16px; letter-spacing: 1px; }
+
+/* ---------- craps ---------- */
+.craps-table { perspective: 900px; margin-bottom: 12px; }
+.craps-felt {
+  position: relative; padding: 26px 16px 16px;
+  background: #2d4a2d;
+  border: 3px solid; border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
+  transform: rotateX(18deg);            /* slight top-down tilt so the cubes read as 3D */
+  transform-style: preserve-3d;
+}
+.craps-point {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: #cfe3b0;
+}
+.craps-dice { display: flex; gap: 34px; justify-content: center; padding: 18px 0 10px; transform-style: preserve-3d; }
+.die { width: 54px; height: 54px; perspective: 700px; transform-style: preserve-3d; }
+.die.thrown { animation: die-slide 1.25s cubic-bezier(0.16, 0.84, 0.36, 1); }
+@keyframes die-slide {
+  0% { transform: translate(-140px, -60px) translateZ(90px); }
+  60% { transform: translate(14px, 8px) translateZ(24px); }
+  80% { transform: translate(-5px, -2px) translateZ(6px); }
+  100% { transform: translate(0, 0) translateZ(0); }
+}
+.die-cube {
+  width: 100%; height: 100%; position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1.15s cubic-bezier(0.18, 0.9, 0.32, 1.04);
+}
+.die-face {
+  position: absolute; inset: 0;
+  background: #f2ead8;
+  border: 2px solid #c9bfa5; border-radius: 6px;
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  align-items: center; justify-items: center; padding: 6px;
+  backface-visibility: hidden;
+}
+.die-top    { transform: rotateX(90deg)  translateZ(27px); }
+.die-bottom { transform: rotateX(-90deg) translateZ(27px); }
+.die-front  { transform: translateZ(27px); }
+.die-back   { transform: rotateY(180deg) translateZ(27px); }
+.die-right  { transform: rotateY(90deg)  translateZ(27px); }
+.die-left   { transform: rotateY(-90deg) translateZ(27px); }
+.pip { width: 9px; height: 9px; border-radius: 50%; }
+.pip.on { background: #2b2b26; box-shadow: inset -1px -1px 1px rgba(255,255,255,0.35); }
+.craps-hist {
+  display: flex; gap: 6px; justify-content: center; margin-top: 8px;
+  font-family: var(--mono); font-size: 11px; color: #9fb387;
+}
+.craps-hist span:first-child { color: #fff; font-weight: 700; }
+.craps-bets { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+.craps-bet {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--panel); border: 2px solid;
+  border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
+  font-size: 13px;
+}
+.craps-bet b { font-family: var(--mono); min-width: 46px; text-align: right; }
+.craps-bet.live { outline: 2px solid var(--select); }
+@media (max-width: 640px) {
+  .die { width: 46px; height: 46px; }
+  .die-top, .die-bottom, .die-front, .die-back, .die-right, .die-left { transform-origin: center; }
+  .die-top    { transform: rotateX(90deg)  translateZ(23px); }
+  .die-bottom { transform: rotateX(-90deg) translateZ(23px); }
+  .die-front  { transform: translateZ(23px); }
+  .die-back   { transform: rotateY(180deg) translateZ(23px); }
+  .die-right  { transform: rotateY(90deg)  translateZ(23px); }
+  .die-left   { transform: rotateY(-90deg) translateZ(23px); }
+}

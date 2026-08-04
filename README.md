@@ -115,6 +115,10 @@ Work plays are counted in the same global and per-player stat counters as casino
 
 Pay credits into your XP bar (card at the top of Standings). The first level costs ₡1,000 and each level adds ₡200 to the next requirement. Standings rank by level first, then net worth within a level; each row shows current net worth plus a lifetime figure (net worth + everything invested in levels), so leveling never looks like losing money.
 
+## Craps
+
+Pass Line, Don't Pass (bar 12), and the one-roll Field (3-4-9-10-11 even, 2 and 12 double), with authentic come-out/point flow — line bets lock once a point is set, and the roll history strip tracks the table. The dice are real CSS 3D cubes on a tilted felt, thrown across the table with extra tumbling spins that ease out to the rolled faces. Wins settle when the dice stop, crash-safe.
+
 ## Stock display & news indicators
 
 Stocks show abbreviations only (no company names). Edit `STOCK_ABBR` near the top of the market section in `js/app.js` to set a custom abbreviation per ticker; anything unlisted shows its ticker. News renders as compact indicators instead of headlines: `ABBR ↑` for good news, `ABBR ↑↑!` for breaking good (impact ≥ 15%, tune via `NEWS_BREAKING`), and `↓` / `↓↓!` for bad. Applies to the News tab, the ticker tape, and market-wire toasts. News-event dividends still key off the same impact numbers underneath.

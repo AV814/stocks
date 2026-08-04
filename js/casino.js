@@ -526,7 +526,7 @@ let kenoGamesN = 1;
    leaderboard hover card. */
 let gameStats = {};          // { slots, blackjack, roulette, scratch, keno, lotto }
 let statsSub = null;
-const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets", poker: "hands" };
+const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets", poker: "hands", craps: "rolls" };
 function watchCasinoStats() {
   if (statsSub || !api.db) return;
   statsSub = onSnapshot(doc(api.db, "market", "casinoStats"),
@@ -836,6 +836,151 @@ async function pkDraw() {
   renderCasino();
 }
 
+
+/* ================= CRAPS =================
+   Pass Line / Don't Pass / Field, straight Vegas rules:
+   come-out 7/11 wins the pass, 2/3/12 craps out (don't-pass wins
+   on 2/3, pushes on 12); otherwise the sum becomes the POINT and
+   the shooter rolls until the point (pass wins) or a seven-out
+   (don't wins). Field is a one-roll bet every roll: 3/4/9/10/11
+   pay even, 2 and 12 pay double. Dice are real 3D cubes viewed
+   from above, thrown across the felt. Wins settle when the dice
+   stop, crash-safe like everything else. */
+
+const CRAPS_KEY = "vapor-craps-pending";
+let craps = {
+  phase: "comeout", point: null,
+  bets: { pass: 0, dont: 0, field: 0 },
+  dice: [3, 4], rolling: false, msg: "", history: []
+};
+let crapsRecovering = false;
+function recoverCraps() {
+  if (crapsRecovering || !api.me?.()) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(CRAPS_KEY) || "null"); }
+  catch { localStorage.removeItem(CRAPS_KEY); return; }
+  if (!p || !(p.win > 0)) return;
+  crapsRecovering = true;
+  api.settle(p.win, 0)
+    .then(() => localStorage.removeItem(CRAPS_KEY))
+    .catch(() => {})
+    .finally(() => { crapsRecovering = false; });
+}
+
+async function crapsBet(kind) {
+  if (craps.rolling) return;
+  if (craps.phase === "point" && (kind === "pass" || kind === "dont")) return;  // locked once the point is set
+  const amt = Math.floor(Number(document.querySelector("#craps-amt")?.value || 10));
+  if (!(amt > 0)) return;
+  try { await api.settle(-amt, amt); }
+  catch (e) { alert(e.message); return; }
+  craps.bets[kind] += amt;
+  renderCasino();
+}
+
+// map a face (1-6) to a cube rotation that puts it on top (top-down view)
+const DIE_ROT = {
+  1: [0, 0], 2: [-90, 0], 3: [0, 90], 4: [0, -90], 5: [90, 0], 6: [180, 0]
+};
+async function crapsRoll() {
+  if (craps.rolling) return;
+  if (!craps.bets.pass && !craps.bets.dont && !craps.bets.field) { alert("Place a bet first."); return; }
+  craps.rolling = true;
+  craps.msg = "";
+  bumpStat("craps");
+  const d1 = 1 + Math.floor(Math.random() * 6);
+  const d2 = 1 + Math.floor(Math.random() * 6);
+  renderCasino();
+  // throw: extra full spins + slide, easing to the rolled faces up
+  requestAnimationFrame(() => {
+    [d1, d2].forEach((face, i) => {
+      const cube = document.querySelector(`#die-${i} .die-cube`);
+      const [rx, ry] = DIE_ROT[face];
+      if (cube) cube.style.transform =
+        `rotateX(${720 + rx}deg) rotateY(${(i ? -720 : 720) + ry}deg) rotateZ(${i ? 585 : -495}deg)`;
+    });
+    document.querySelectorAll(".die").forEach((d) => d.classList.add("thrown"));
+  });
+  setTimeout(() => crapsResolve(d1, d2), 1250);
+}
+
+async function crapsResolve(d1, d2) {
+  const sum = d1 + d2;
+  craps.dice = [d1, d2];
+  craps.history.unshift(sum);
+  craps.history = craps.history.slice(0, 12);
+  const b = craps.bets;
+  let win = 0;
+  const lines = [];
+
+  // field resolves every roll
+  if (b.field > 0) {
+    if ([3, 4, 9, 10, 11].includes(sum)) { win += b.field * 2; lines.push(`Field pays ${api.fmt(b.field * 2)}`); }
+    else if (sum === 2 || sum === 12) { win += b.field * 3; lines.push(`Field ${sum} pays double — ${api.fmt(b.field * 3)}`); }
+    else lines.push("Field misses");
+    b.field = 0;
+  }
+
+  if (craps.phase === "comeout") {
+    if (sum === 7 || sum === 11) {
+      if (b.pass) { win += b.pass * 2; lines.push(`${sum} on the come-out — Pass pays ${api.fmt(b.pass * 2)}`); }
+      if (b.dont) lines.push("Don't Pass loses");
+      b.pass = 0; b.dont = 0;
+    } else if (sum === 2 || sum === 3 || sum === 12) {
+      if (b.pass) lines.push(`${sum} craps — Pass loses`);
+      if (b.dont) {
+        if (sum === 12) { win += b.dont; lines.push("Twelve — Don't Pass pushes"); }
+        else { win += b.dont * 2; lines.push(`Don't Pass pays ${api.fmt(b.dont * 2)}`); }
+      }
+      b.pass = 0; b.dont = 0;
+    } else {
+      craps.phase = "point";
+      craps.point = sum;
+      lines.push(`Point is ${sum}`);
+    }
+  } else {
+    if (sum === craps.point) {
+      if (b.pass) { win += b.pass * 2; lines.push(`Point ${sum} hit — Pass pays ${api.fmt(b.pass * 2)}`); }
+      if (b.dont) lines.push("Don't Pass loses");
+      b.pass = 0; b.dont = 0;
+      craps.phase = "comeout"; craps.point = null;
+    } else if (sum === 7) {
+      if (b.pass) lines.push("Seven out — Pass loses");
+      if (b.dont) { win += b.dont * 2; lines.push(`Seven out — Don't Pass pays ${api.fmt(b.dont * 2)}`); }
+      b.pass = 0; b.dont = 0;
+      craps.phase = "comeout"; craps.point = null;
+    } else {
+      lines.push(`${sum} — still rolling for the ${craps.point}`);
+    }
+  }
+
+  craps.msg = lines.join(" · ") + ".";
+  craps.rolling = false;
+  if (win > 0) {
+    win = Math.round(win * 100) / 100;
+    localStorage.setItem(CRAPS_KEY, JSON.stringify({ win }));
+    try { await api.settle(win, 0); localStorage.removeItem(CRAPS_KEY); }
+    catch (e) { console.error("craps payout failed, recovery will retry", e); }
+    api.toast("CRAPS", `+${api.fmt(win)} received`);
+  }
+  renderCasino();
+}
+
+function diePips(face) {
+  const P = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  return Array.from({ length: 9 }, (_, i) =>
+    `<span class="pip ${P[face].includes(i) ? "on" : ""}"></span>`).join("");
+}
+function dieHtml(i, face) {
+  const [rx, ry] = DIE_ROT[face];
+  const faces = [
+    ["top", 1], ["bottom", 6], ["front", 2], ["back", 5], ["right", 3], ["left", 4]
+  ].map(([pos, f]) => `<div class="die-face die-${pos}">${diePips(f)}</div>`).join("");
+  return `<div class="die" id="die-${i}">
+    <div class="die-cube" style="transform:rotateX(${rx}deg) rotateY(${ry}deg)">${faces}</div>
+  </div>`;
+}
+
 /* ================= RENDER ================= */
 function cardHtml(c, hidden, delay) {
   if (hidden) return `<span class="bj-card back">▚</span>`;
@@ -942,6 +1087,35 @@ function renderCasino() {
             <span class="muted">${api.fmt(t.price)} · win up to ${api.fmt(t.price * 1000)}</span>
           </button>`).join("")}
         </div>` : ""}
+    </div>`;
+
+  const crapsHtml = `
+    <div class="casino-panel">
+      ${statLine("craps")}
+      <div class="craps-table">
+        <div class="craps-felt">
+          <div class="craps-point">${craps.phase === "point" ? `POINT: <b>${craps.point}</b>` : "COME OUT"}</div>
+          <div class="craps-dice">
+            ${dieHtml(0, craps.dice[0])}
+            ${dieHtml(1, craps.dice[1])}
+          </div>
+          <div class="craps-hist">${craps.history.map((h) => `<span>${h}</span>`).join("")}</div>
+        </div>
+      </div>
+      <div class="craps-bets">
+        ${[["pass", "Pass Line"], ["dont", "Don't Pass"], ["field", "Field"]].map(([k, label]) => `
+          <div class="craps-bet ${craps.bets[k] > 0 ? "live" : ""}">
+            <span>${label}</span>
+            <b>${craps.bets[k] > 0 ? api.fmt(craps.bets[k]) : "—"}</b>
+            <button class="ghost" data-craps-bet="${k}" ${craps.rolling || (craps.phase === "point" && k !== "field") ? "disabled" : ""}>Bet</button>
+          </div>`).join("")}
+      </div>
+      <div class="casino-controls">
+        <input id="craps-amt" type="number" min="1" step="1" value="10">
+        <button class="btn-spin" id="craps-roll" ${craps.rolling ? "disabled" : ""}>${craps.rolling ? "Rolling…" : "Roll"}</button>
+      </div>
+      <div class="casino-msg ${craps.msg.includes("pays") ? "up" : ""}">${craps.msg ||
+        "Pass wins on 7/11, craps out on 2/3/12; then the point must hit before a seven. Don't Pass is the pessimist's side (12 pushes). Field is a one-roll bet: 3-4-9-10-11 even, 2 and 12 double. Bets on the line lock once a point is set."}</div>
     </div>`;
 
   const lottoHtml = `${statLine("lotto")}<div id="lotto-root"></div>`;
@@ -1079,13 +1253,14 @@ function renderCasino() {
         <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
         <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratch Tickets</button>
         <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
+        <button data-cmode="craps" class="${mode === "craps" ? "active" : ""}">Craps</button>
         <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
         <button data-cmode="poker" class="${mode === "poker" ? "active" : ""}">Poker</button>
         <button data-cmode="keno" class="${mode === "keno" ? "active" : ""}">Keno</button>
         <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">Powerball</button>
       </div>
     </div>
-    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : mode === "poker" ? pokerHtml : lottoHtml}
+    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : mode === "poker" ? pokerHtml : mode === "craps" ? crapsHtml : lottoHtml}
   `;
 
   el.querySelectorAll("[data-cmode]").forEach((b) =>
@@ -1121,6 +1296,9 @@ function renderCasino() {
     pk.discard.has(i) ? pk.discard.delete(i) : pk.discard.add(i);
     renderCasino();
   }));
+  el.querySelectorAll("[data-craps-bet]").forEach((b) =>
+    b.addEventListener("click", () => crapsBet(b.dataset.crapsBet)));
+  el.querySelector("#craps-roll")?.addEventListener("click", crapsRoll);
   el.querySelector("#pk-deal")?.addEventListener("click", pkDeal);
   el.querySelector("#pk-double")?.addEventListener("click", pkDouble);
   el.querySelector("#pk-draw")?.addEventListener("click", pkDraw);
@@ -1149,6 +1327,7 @@ function renderCasino() {
   recoverPoker();
   recoverBlackjack();
   recoverSlots();
+  recoverCraps();
   bj.anim = null;                                  // flips play once, not on background re-renders
   if (pk.phase === "done") pk.animShown = true;
   if (mode === "lotto") api.renderLotto();

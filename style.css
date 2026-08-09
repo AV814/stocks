@@ -1038,14 +1038,7 @@ nav.tabs, .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar
 .chat-audio { width: 240px; max-width: 100%; margin-top: 3px; }
 .chat-img.big { width: 220px; height: auto; image-rendering: auto; }
 .chat-up-btn[disabled] { opacity: 0.45; }
-/* first place crown */
-.lb-row.first .avatar { outline: 3px solid #e8d44d; outline-offset: 1px; }
-.lb-crown {
-  position: absolute; top: -13px; left: 7px;
-  color: #e8d44d; font-size: 14px; text-shadow: 0 1px 0 rgba(0,0,0,0.5);
-  pointer-events: none;
-}
-.lb-name { position: relative; }
+
 /* avatar drawing modal */
 .pfp-modal {
   position: fixed; inset: 0; background: rgba(10, 12, 8, 0.75);
@@ -1055,11 +1048,15 @@ nav.tabs, .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar
   background: var(--panel); padding: 16px; max-width: 94vw;
   border: 3px solid; border-color: var(--bev-light) var(--bev-dark) var(--bev-dark) var(--bev-light);
 }
+
+.pfp-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.pfp-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* shared drawpad */
+.chat-pad-mount { display: flex; gap: 12px; flex-wrap: wrap; }
 #pfp-canvas {
-  width: 300px; height: 300px; max-width: 84vw; max-height: 84vw;
+  width: 360px; height: 360px; max-width: 84vw; max-height: 84vw;
   image-rendering: pixelated; image-rendering: crisp-edges;
   background: #fff; cursor: crosshair; touch-action: none;
   border: 2px solid; border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
 }
-.pfp-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
-.pfp-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }

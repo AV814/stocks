@@ -240,12 +240,12 @@ export function renderChat() {
           </div>
           <div class="chat-draw-actions">
             <button class="ghost" id="chat-clear">Clear</button>
-            <button class="btn-spin" id="chat-upload">Upload — ₡25</button>
+            <button class="btn-spin" id="chat-upload">Upload — ₡20</button>
           </div>
         </div>
       </div>
       <div class="chat-input-row">
-        <button class="ghost" id="chat-draw-btn" title="Draw a doodle">✎</button>
+        <button class="ghost" id="chat-draw-btn" title="Draw">✎</button>
         <input id="chat-input" type="text" maxlength="${MAX_LEN}" placeholder="Say something…" autocomplete="off">
         <button class="btn-spin" id="chat-send">Send</button>
       </div>`;

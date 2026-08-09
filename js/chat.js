@@ -16,7 +16,7 @@ let firstLoad = true;
 let lastSentAt = 0;
 
 const MAX_LEN = 300;
-const PIX = 64;                       // 64x64 pixel doodle card
+const PIX = 128;                       // 64x64 pixel doodle card
 const IMG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 const PALETTE = ["#000000", "#ffffff", "#c0392b", "#e8a33d", "#e8d44d", "#5aa03c",
                  "#3aa6a6", "#3a6ea5", "#7d4fa5", "#d976a8", "#7a5230", "#8a9280"];
@@ -64,7 +64,7 @@ async function send() {
   } catch (e) { alert(e.message); }
 }
 
-const DOODLE_COST = 25;
+const DOODLE_COST = 20;
 async function sendDoodle() {
   const cv = document.querySelector("#chat-canvas");
   if (!cv || !api.me()) return;

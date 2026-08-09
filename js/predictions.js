@@ -226,7 +226,7 @@ function renderPredictions() {
   const done = preds.filter((p) => p.status === "resolved" || p.status === "void");
   el.innerHTML = `
     <h3 class="sec">Prediction Desk</h3>
-    ${preds.length === 0 ? `<p class="muted">Nothing on the board yet. The house sets the lines — check back soon.</p>` : ""}
+    ${preds.length === 0 ? `<p class="muted">No current predictions posted.</p>` : ""}
     ${active.map(predCard).join("")}
     ${done.length ? `<h3 class="sec" style="margin-top:22px">Settled</h3>` + done.map(predCard).join("") : ""}
     ${!api.isAdmin() && api.ADMIN_UID.startsWith("PASTE") ? `<p class="muted" style="font-size:12px;margin-top:14px">Admin not configured. Your UID (for firebase-config.js and firestore.rules): <code>${api.me()?.uid || ""}</code></p>` : ""}
@@ -324,10 +324,10 @@ function admCard(p) {
 function renderAdmin() {
   const el = api.adminEl();
   if (!el) return;
-  if (!api.isAdmin()) { el.innerHTML = `<p class="muted">You are not the house.</p>`; return; }
+  if (!api.isAdmin()) { el.innerHTML = `<p class="muted">Admin access only.</p>`; return; }
 
   el.innerHTML = `
-    <h3 class="sec">The House Desk</h3>
+    <h3 class="sec">Admin</h3>
     <div class="adm-form">
       <div class="adm-type-row">
         <button class="ghost ${draftType === "wager" ? "on" : ""}" data-ptype="wager">Wager</button>
@@ -356,8 +356,8 @@ function renderAdmin() {
         <button class="btn-spin" id="adm-create">Post prediction</button>
       </div>
       <p class="muted" style="font-size:12px">${draftType === "wager"
-        ? "Multiplier = total payout per credit staked (a 2x winner turns ₡100 into ₡200). Losing stakes are burned — winners are paid from thin air, house style."
-        : "Free picks cost nothing to enter. Everyone who picked the winning option gets the reward; wrong picks lose nothing. Pure credit faucet with a quiz attached."}</p>
+        ? "Multiplier = total payout per credit staked (a 2x winner turns ₡100 into ₡200). Losing stakes are removed. Winning stakes are multiplied and paid out."
+        : "Free picks cost nothing to enter. Everyone who picked the winning option receives the reward."}</p>
     </div>
     ${preds.map(admCard).join("") || `<p class="muted">No predictions yet.</p>`}
     ${treasuryPanel()}
@@ -498,11 +498,12 @@ const RESETS = [
       await deleteDoc(doc(api.db, "market", "kenoStats")).catch(() => {});
       return "global counters zeroed";
     } },
-  { id: "players", label: "Players (cash 1000, wipe holdings/stats/trades/caps)", run: async () => {
+  { id: "players", label: "Players (cash 1000, wipe holdings/stats/trades/caps/levels)", run: async () => {
       const qs = await getDocs(collection(api.db, "users"));
       for (const d of qs.docs) {
         await updateDoc(d.ref, {
           cash: 1000, holdings: {}, gameStats: {}, work: {},
+          level: 0, xp: 0, levelSpent: 0,
           dailyClaim: null, lastDivAt: null, lastPassiveDivAt: null
         });
         const trades = await getDocs(collection(api.db, "users", d.id, "trades"));

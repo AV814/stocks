@@ -104,9 +104,7 @@ The Work tab is the counterweight to the casino: three skill games that pay hone
 
 - **Minesweeper** — 9x9, 10 mines, first click always safe. Clearing the board pays ₡50 plus a speed bonus up to ₡30 (full under 60 seconds). Right-click or Flag mode to mark mines.
 - **Snake** — ₡2 per pellet, banked when you crash. Speeds up as you grow. Keyboard or the on-screen pad on touch devices.
-- **Intrusion** — a typing breach with escalating lines: line 1 is one word for ₡1, and every cleared line adds a word and doubles the pay (₡2, ₡4… capping at 7 words / ₡64 a line). Generous per-line timers scale with word count; one wrong key or a timeout ends the run and pays out everything banked.
 - **Pipes** — a BioShock-style hack on a 12x12 board studded with ~26 immovable blocked slabs: drag tiles onto each other to swap them (tap-tap on mobile) and route the flow from inlet to outlet — no rotation, no four-way pieces. Every board is dealt solvable (hidden solution path generated first, its pieces shuffled across the grid, blocks placed off-path). Fluid starts after a 12-second grace and advances every 1.5s — or hit **Open the valve** when your path is ready to blast it through at full pressure for the speed bonus (up to ₡40 on top of ₡60).
-- **Hack** — a Fallout-style terminal: twelve candidate passwords buried in symbol noise, four attempts, and every wrong guess reports its LIKENESS (letters correct and in position). Deduce the password for ₡30 + ₡20 per spare attempt. Click words in the dump or type them at the prompt.
 
 Work plays are counted in the same global and per-player stat counters as casino games.
 
@@ -120,7 +118,7 @@ Pay credits into your XP bar (card at the top of Standings). The first level cos
 - Everyone **draws** their profile picture: the avatar button opens a 50x50 pixel editor (palette, full-spectrum picker, seeded with your current drawing for edits). At **level 10** a photo-upload option appears in the same editor.
 - Chat gains two paid, level-gated upload buttons: **MP3 clips at level 3 for ₡10** (kept under ~700KB so they fit a message) and **pictures at level 7 for ₡25** (auto-compressed to fit). Costs charge like the doodle fee, with refund-on-failure. Enforced server-side: chat rules check the sender's stored level via a rules `get()`.
 - First place on Standings wears a gold ring and a ♛ above their avatar.
-- Craps dice are now 2D — flat faces that shake and tumble through random pips before settling.
+- Craps dice are 2D — flat faces spin in circles while the pips shuffle, then settle on the roll.
 
 ## Craps
 

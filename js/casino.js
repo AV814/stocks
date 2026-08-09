@@ -8,7 +8,7 @@ import { rand, deriveSeed } from "./market.js";
 import { doc, onSnapshot, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let api = null;          // { fmt, toast, getCash, settle, el, renderLotto }
-let mode = "slots";      // slots | blackjack | roulette | scratch | keno | lotto
+let mode = "slots";      // slots | blackjack | roulette | craps | keno | poker | lotto
 
 /* ================= SLOTS =================
    Weighted reels, ~91% RTP:
@@ -28,11 +28,6 @@ const SYM_COLOR = {
   "7": "#e05c5c"    // lucky red
 };
 const symSpan = (g) => `<span style="color:${SYM_COLOR[g] || "inherit"}">${g}</span>`;
-const SCRATCH_COLOR = {
-  "♣": "#5aa03c", "$": "#8bd450", "♫": "#c9a227", "◆": "#6fb7d9", "↟": "#e8a33d", "♛": "#c77dd6",
-  "~": "#6a705f", "%": "#6a705f", "#": "#6a705f", "!": "#6a705f", "↡": "#6a705f", "?": "#6a705f"
-};
-const scSpan = (g) => `<span style="color:${SCRATCH_COLOR[g] || "inherit"}">${g}</span>`;
 const REEL_TOTAL = SYMBOLS.reduce((a, x) => a + x.w, 0);
 
 function spinSymbol() {
@@ -117,112 +112,7 @@ async function doSpin() {
   }, 70);
 }
 
-/* ================= SCRATCH-OFFS =================
-   Equal-EV prize ladder, ~72% RTP, ~21% of tickets win:
-   1x 12% · 2x 6% · 5x 2.4% · 20x 0.6% · 100x 0.12% · 1000x 0.012%
-   Find three matching symbols on a 3x3 grid to win that prize. */
 
-const SCRATCH_TIERS = [
-  { id: "bucks",   name: "LW Bucks",   price: 10,  hue: "#8bd450" },
-  { id: "neon",    name: "Neon Fortune",  price: 50,  hue: "#e8a33d" },
-  { id: "heist",   name: "Diamond Heist", price: 250, hue: "#7ec8e3" }
-];
-const SCRATCH_LADDER = [[1, 0.12], [2, 0.06], [5, 0.024], [20, 0.006], [100, 0.0012], [1000, 0.00012]];
-const PRIZE_SYM = { 1: "♣", 2: "$", 5: "♫", 20: "◆", 100: "↟", 1000: "♛" };
-const DUD_SYMS = ["~", "%", "#", "!", "↡", "?"];
-
-let scratch = null; // { tier, grid, mult, prize, winSym, revealed:Set, done }
-
-function rollLadder() {
-  let r = Math.random();
-  for (const [mult, p] of SCRATCH_LADDER) { if (r < p) return mult; r -= p; }
-  return 0;
-}
-function buildGrid(winMult) {
-  const winSym = winMult ? PRIZE_SYM[winMult] : null;
-  const pool = [...Object.values(PRIZE_SYM), ...DUD_SYMS].filter((s) => s !== winSym);
-  const grid = winSym ? [winSym, winSym, winSym] : [];
-  const counts = {};
-  while (grid.length < 9) {
-    const s = pool[Math.floor(Math.random() * pool.length)];
-    if ((counts[s] || 0) >= 2) continue;
-    counts[s] = (counts[s] || 0) + 1;
-    grid.push(s);
-  }
-  for (let i = grid.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [grid[i], grid[j]] = [grid[j], grid[i]];
-  }
-  return { grid, winSym };
-}
-
-/* Pending tickets survive reloads: the outcome is decided (and the
-   price paid) at purchase, but the PRIZE only hits your balance once
-   the ticket is fully scratched — no peeking at the cash pill. */
-const SCRATCH_KEY = "vapor-scratch-pending";
-
-function saveScratch() {
-  if (!scratch || (scratch.done && scratch.paid)) { localStorage.removeItem(SCRATCH_KEY); return; }
-  localStorage.setItem(SCRATCH_KEY, JSON.stringify({
-    tierId: scratch.tier.id, grid: scratch.grid, mult: scratch.mult,
-    prize: scratch.prize, winSym: scratch.winSym,
-    revealed: [...scratch.revealed], done: scratch.done, paid: scratch.paid
-  }));
-}
-function loadScratch() {
-  try {
-    const raw = localStorage.getItem(SCRATCH_KEY);
-    if (!raw) return;
-    const s = JSON.parse(raw);
-    const tier = SCRATCH_TIERS.find((t) => t.id === s.tierId);
-    if (!tier || !Array.isArray(s.grid) || s.grid.length !== 9) { localStorage.removeItem(SCRATCH_KEY); return; }
-    scratch = { tier, grid: s.grid, mult: s.mult, prize: s.prize, winSym: s.winSym,
-                revealed: new Set(s.revealed || []), done: !!s.done, paid: !!s.paid };
-    if (scratch.done && !scratch.paid) payScratch(); // interrupted payout — retry
-  } catch { localStorage.removeItem(SCRATCH_KEY); }
-}
-
-async function payScratch() {
-  if (!scratch || !scratch.done || scratch.paid) return;
-  if (scratch.prize <= 0) { scratch.paid = true; saveScratch(); return; }
-  try {
-    await api.settle(scratch.prize, 0);
-    scratch.paid = true;
-    saveScratch();
-    if (scratch.mult >= 20) api.toast("SCRATCHERS", `+${api.fmt(scratch.prize)} received`);
-  } catch (e) {
-    console.error("scratch payout failed, will retry", e);
-    setTimeout(payScratch, 4000);
-  }
-}
-
-async function buyScratch(tier) {
-  if (scratch && !(scratch.done && scratch.paid)) return;
-  if (tier.price > api.getCash()) { alert("Not enough credits."); return; }
-  try { await api.settle(-tier.price, tier.price); }   // price only — prize pays on full reveal
-  catch (e) { alert(e.message); return; }
-  bumpStat("scratch");
-  const mult = rollLadder();
-  const { grid, winSym } = buildGrid(mult);
-  scratch = { tier, grid, mult, prize: tier.price * mult, winSym, revealed: new Set(), done: false, paid: false };
-  saveScratch();
-  renderCasino();
-}
-function revealCell(i) {
-  if (!scratch || scratch.done) return;
-  if (scratch.revealed.has(i)) return;
-  scratch.revealed.add(i);
-  const cell = document.querySelector(`[data-sc="${i}"]`);
-  if (cell) { cell.classList.add("revealed"); cell.innerHTML = scSpan(scratch.grid[i]); }
-  if (scratch.revealed.size === 9) {
-    scratch.done = true;
-    saveScratch();
-    payScratch();
-    renderCasino();
-  } else {
-    saveScratch();
-  }
-}
 
 /* ================= BLACKJACK =================
    6-deck shoe, fresh shuffle each hand. Dealer stands on all 17s.
@@ -524,9 +414,9 @@ let kenoGamesN = 1;
    (any signed-in player may write it — no rules change needed).
    Each play also bumps the player's own gameStats for the
    leaderboard hover card. */
-let gameStats = {};          // { slots, blackjack, roulette, scratch, keno, lotto }
+let gameStats = {};          // global per-game play counters
 let statsSub = null;
-const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", scratch: "tickets", keno: "games", lotto: "tickets", poker: "hands", craps: "rolls" };
+const STAT_LABEL = { slots: "spins", blackjack: "hands", roulette: "spins", keno: "games", lotto: "tickets", poker: "hands", craps: "rolls" };
 function watchCasinoStats() {
   if (statsSub || !api.db) return;
   statsSub = onSnapshot(doc(api.db, "market", "casinoStats"),
@@ -828,7 +718,7 @@ async function pkDraw() {
     }, revealDone);
     if (mine.s[0] >= 5) setTimeout(() => api.toast("POKER", `+${api.fmt(winnings)} received`), revealDone);
   } else if (cmp === 0) {
-    pk.msg = `Both show ${mine.name}. Ties go to the house. That's the edge.`;
+    pk.msg = `Both show ${mine.name}. Ties go to the house.`;
   } else {
     pk.msg = `${house.name} beats your ${mine.name}. The house rakes ${api.fmt(stake)}.`;
   }
@@ -1059,33 +949,7 @@ function renderCasino() {
           <button class="btn-spin" id="bj-deal">Deal</button>
         `}
       </div>
-      <div class="casino-msg ${bj.phase === "done" && bj.anim ? "pk-msg-in" : ""}" ${bj.phase === "done" && bj.anim ? `style="animation-delay:${(bj.anim.base + 0.2 + bj.anim.dealer.size * 0.16 + 0.25).toFixed(2)}s"` : ""}>${inHand ? `${bj.hands.length > 1 ? `Playing hand ${bj.active + 1} of ${bj.hands.length}` : `Bet: ${api.fmt(bj.bet)}`} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on 17. Split pairs once; split aces get one card each.")}</div>
-    </div>`;
-
-  const scratchHtml = `
-    <div class="casino-panel">
-      ${statLine("scratch")}
-      ${scratch ? `
-        <div class="scratch-name" style="color:${scratch.tier.hue}">${scratch.tier.name} · ${api.fmt(scratch.tier.price)}</div>
-        <div class="scratch-grid">
-          ${scratch.grid.map((s, i) => `<button class="scratch-cell ${scratch.revealed.has(i) ? "revealed" : ""}" data-sc="${i}">${scratch.revealed.has(i) ? scSpan(s) : ""}</button>`).join("")}
-        </div>
-        <div class="casino-controls" style="margin-top:12px">
-          ${scratch.done ? "" : `<button class="ghost" id="sc-all">Reveal all</button>`}
-        </div>
-        <div class="casino-msg ${scratch.done ? (scratch.prize > 0 ? "up" : "down") : ""}">
-          ${scratch.done
-            ? (scratch.prize > 0 ? `Three ${scratch.winSym} — you won ${api.fmt(scratch.prize)} (${scratch.mult}x)!` : "No three of a kind. Into the bin it goes.")
-            : "Scratch the foil — click or drag across the cells. Three matching symbols wins."}
-        </div>
-      ` : `<div class="casino-msg">Pick a ticket. Match three symbols to win that prize.</div>`}
-      ${(!scratch || scratch.done) ? `
-        <div class="scratch-shop">
-          ${SCRATCH_TIERS.map((t) => `<button class="scratch-buy" style="border-color:${t.hue}" data-tier="${t.id}">
-            <span style="color:${t.hue};font-weight:700">${t.name}</span>
-            <span class="muted">${api.fmt(t.price)} · win up to ${api.fmt(t.price * 1000)}</span>
-          </button>`).join("")}
-        </div>` : ""}
+      <div class="casino-msg ${bj.phase === "done" && bj.anim ? "pk-msg-in" : ""}" ${bj.phase === "done" && bj.anim ? `style="animation-delay:${(bj.anim.base + 0.2 + bj.anim.dealer.size * 0.16 + 0.25).toFixed(2)}s"` : ""}>${inHand ? `${bj.hands.length > 1 ? `Playing hand ${bj.active + 1} of ${bj.hands.length}` : `Bet: ${api.fmt(bj.bet)}`} — hit or stand?` : (bj.msg || "Blackjack pays 3:2. Dealer stands on all 17s. Pairs may be split once; split aces receive one card each.")}</div>
     </div>`;
 
   const crapsHtml = `
@@ -1114,7 +978,7 @@ function renderCasino() {
         <button class="btn-spin" id="craps-roll" ${craps.rolling ? "disabled" : ""}>${craps.rolling ? "Rolling…" : "Roll"}</button>
       </div>
       <div class="casino-msg ${craps.msg.includes("pays") ? "up" : ""}">${craps.msg ||
-        "Pass wins on 7/11, craps out on 2/3/12; then the point must hit before a seven. Don't Pass is the pessimist's side (12 pushes). Field is a one-roll bet: 3-4-9-10-11 even, 2 and 12 double. Bets on the line lock once a point is set."}</div>
+        "Pass wins on 7/11, loses on 2/3/12; after that the point must roll before a 7. Don't Pass wins on 2/3, pushes on 12. Field is a one-roll bet: 3/4/9/10/11 pay even, 2 and 12 pay double. Line bets lock once a point is set."}</div>
     </div>`;
 
   const lottoHtml = `${statLine("lotto")}<div id="lotto-root"></div>`;
@@ -1165,8 +1029,8 @@ function renderCasino() {
         `}
       </div>
       <div class="casino-msg ${pk.phase === "done" ? (pk.msg.includes("you win") ? "up" : "down") + (pk.animShown ? "" : " pk-msg-in") : ""}" ${pk.phase === "done" && !pk.animShown ? `style="animation-delay:${((pk.revealBase || 0.15) + pk.dealer.length * 0.16 + 0.2).toFixed(2)}s"` : ""}>${
-        pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the swap. Double down while the house is face-down — but a doubled hand buys the house a sixth card.` :
-        pk.msg || "Five-card draw against the house. Wins pay 1.95x, one swap — and if you double down, the house deals itself a sixth card and plays its best five. Ties go to the house."}</div>
+        pkLive ? `Bet ${api.fmt(pk.doubled ? pk.bet * 2 : pk.bet)} — tap cards to mark for the draw. Double down is available before drawing; it deals the house a sixth card.` :
+        pk.msg || "Five-card draw. Wins pay 1.95x. One draw. Doubling down deals the house a sixth card (best five of six count). Ties go to the house."}</div>
     </div>`;
 
   const numCell = (n) => {
@@ -1233,7 +1097,7 @@ function renderCasino() {
         <div class="keno-report-row"><span>Hits</span><b class="${kenoReport.payout > 0 ? "up" : ""}">${kenoReport.hits}/${kenoReport.picks.length}${kenoReport.mult ? ` — ${kenoReport.mult}x` : ""}</b></div>
         <div class="keno-report-row"><span>This game</span><b class="${kenoReport.payout > 0 ? "up" : "down"}">${kenoReport.payout > 0 ? "+" + api.fmt(kenoReport.payout) : "-" + api.fmt(kenoReport.bet)}</b></div>
         ${kenoReport.games > 1 ? `<div class="keno-report-row"><span>Card so far</span><b class="${kenoReport.totalWon >= kenoReport.spent / kenoReport.games * kenoReport.game ? "up" : ""}">won ${api.fmt(kenoReport.totalWon)} of ${api.fmt(kenoReport.spent)} spent</b></div>` : ""}
-      </div>` : `<div class="casino-msg">Your card plays the next shared draw. More picks, bigger top prizes.</div>`}
+      </div>` : `<div class="casino-msg">Your card plays the next shared draw.</div>`}
       ${kenoTickets.filter((t) => !t.done).length ? `<div class="keno-mine">
         ${kenoTickets.filter((t) => !t.done).map((t) => `<div class="lotto-ticket">
           <span class="muted" style="font-size:11px">${t.games > 1 ? `game ${t.played + 1}/${t.games} · won ${api.fmt(t.totalWon)} so far` : "next draw"} · ${api.fmt(t.bet)}/game</span>
@@ -1250,7 +1114,6 @@ function renderCasino() {
       <h3 class="sec" style="margin:0">The LW Lounge</h3>
       <div class="casino-tabs">
         <button data-cmode="slots" class="${mode === "slots" ? "active" : ""}">Slots</button>
-        <button data-cmode="scratch" class="${mode === "scratch" ? "active" : ""}">Scratch Tickets</button>
         <button data-cmode="roulette" class="${mode === "roulette" ? "active" : ""}">Roulette</button>
         <button data-cmode="craps" class="${mode === "craps" ? "active" : ""}">Craps</button>
         <button data-cmode="blackjack" class="${mode === "blackjack" ? "active" : ""}">Blackjack</button>
@@ -1259,7 +1122,7 @@ function renderCasino() {
         <button data-cmode="lotto" class="${mode === "lotto" ? "active" : ""}">Powerball</button>
       </div>
     </div>
-    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "scratch" ? scratchHtml : mode === "keno" ? kenoHtml : mode === "poker" ? pokerHtml : mode === "craps" ? crapsHtml : lottoHtml}
+    ${mode === "slots" ? slotsHtml : mode === "blackjack" ? bjHtml : mode === "roulette" ? rouletteHtml : mode === "keno" ? kenoHtml : mode === "poker" ? pokerHtml : mode === "craps" ? crapsHtml : lottoHtml}
   `;
 
   el.querySelectorAll("[data-cmode]").forEach((b) =>
@@ -1270,16 +1133,6 @@ function renderCasino() {
   el.querySelector("#bj-stand")?.addEventListener("click", bjStand);
   el.querySelector("#bj-double")?.addEventListener("click", bjDouble);
   el.querySelector("#bj-split")?.addEventListener("click", bjSplit);
-  el.querySelectorAll(".scratch-buy").forEach((b) =>
-    b.addEventListener("click", () => buyScratch(SCRATCH_TIERS.find((t) => t.id === b.dataset.tier))));
-  el.querySelectorAll(".scratch-cell").forEach((c) => {
-    const i = Number(c.dataset.sc);
-    c.addEventListener("pointerdown", () => revealCell(i));
-    c.addEventListener("pointerenter", (e) => { if (e.buttons & 1) revealCell(i); });
-  });
-  el.querySelector("#sc-all")?.addEventListener("click", () => {
-    for (let i = 0; i < 9; i++) revealCell(i);
-  });
   el.querySelectorAll("[data-rb]").forEach((b) => b.addEventListener("click", () => roulPlace(b.dataset.rb)));
   el.querySelector("#roul-chip")?.addEventListener("change", (e) => { roul.chip = Math.max(1, Math.floor(Number(e.target.value) || 1)); });
   el.querySelector("#roul-clear")?.addEventListener("click", () => { roul.bets = {}; renderCasino(); });
@@ -1334,7 +1187,6 @@ function renderCasino() {
 
 export function initCasino(apiIn) {
   api = apiIn;
-  loadScratch();
   kenoLoad();
   return { render: renderCasino };
 }

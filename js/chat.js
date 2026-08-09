@@ -21,8 +21,8 @@ const PIX = 128;                       // draw card
 const IMG_RE = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 const IMG_UP_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 const AUDIO_RE = /^data:audio\/(mpeg|mp3);base64,[A-Za-z0-9+/=]+$/;
-const MP3_LEVEL = 3, MP3_COST = 10, MP3_MAX = 950000;       // ~700KB file
-const PIC_LEVEL = 7, PIC_COST = 25, PIC_MAX = 300000;
+const MP3_LEVEL = 3, MP3_MAX = 950000;       // ~700KB file
+const PIC_LEVEL = 7, PIC_MAX = 300000;
 let drawOpen = false;
 let chatPad = null;         // shared drawpad instance
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -65,17 +65,13 @@ async function send() {
   } catch (e) { alert(e.message); }
 }
 
-const DOODLE_COST = 20;
 async function sendDoodle() {
   const cv = document.querySelector("#chat-canvas");
   if (!cv || !api.me()) return;
   if (Date.now() - lastSentAt < 1500) return;
   const img = cv.toDataURL("image/png");
-  if (img.length > 28000) { alert("That drawing is too detailed to send — simplify it a bit."); return; }
-  if ((api.myDoc()?.cash || 0) < DOODLE_COST) { alert(`Posting a masterpiece costs ${api.fmt(DOODLE_COST)}. You're short.`); return; }
+  if (img.length > 28000) { alert("That drawing is too detailed to send — simplify it."); return; }
   lastSentAt = Date.now();
-  try { await api.settle(-DOODLE_COST, DOODLE_COST); }   // gallery fee
-  catch (e) { alert(e.message); return; }
   try {
     await addDoc(collection(api.db, "chat"), {
       uid: api.me().uid,
@@ -86,15 +82,7 @@ async function sendDoodle() {
     });
     chatPad?.clear();
     toggleDraw(false);
-  } catch (e) {
-    api.settle(DOODLE_COST, 0).catch(() => {});          // post failed — refund the fee
-    alert(e.message);
-  }
-}
-function toggleDraw(force) {
-  drawOpen = force !== undefined ? force : !drawOpen;
-  document.querySelector("#chat-draw-panel")?.classList.toggle("hidden", !drawOpen);
-  document.querySelector("#chat-draw-btn")?.classList.toggle("on", drawOpen);
+  } catch (e) { alert(e.message); }
 }
 
 function fileToDataUrl(file) {
@@ -125,9 +113,7 @@ async function sendMedia(kind, file) {
   if (!file || !api.me()) return;
   const lvl = api.myDoc()?.level || 0;
   const need = kind === "audio" ? MP3_LEVEL : PIC_LEVEL;
-  const cost = kind === "audio" ? MP3_COST : PIC_COST;
   if (lvl < need) { alert(`That unlocks at level ${need}.`); return; }
-  if ((api.myDoc()?.cash || 0) < cost) { alert(`Costs ${api.fmt(cost)} — you're short.`); return; }
   let payload;
   try {
     if (kind === "audio") {
@@ -143,8 +129,6 @@ async function sendMedia(kind, file) {
   } catch (e) { alert(e.message); return; }
   if (Date.now() - lastSentAt < 1500) return;
   lastSentAt = Date.now();
-  try { await api.settle(-cost, cost); }
-  catch (e) { alert(e.message); return; }
   try {
     await addDoc(collection(api.db, "chat"), {
       uid: api.me().uid,
@@ -153,10 +137,7 @@ async function sendMedia(kind, file) {
       ...(kind === "audio" ? { audio: payload } : { img: payload, upload: true }),
       at: Date.now()
     });
-  } catch (e) {
-    api.settle(cost, 0).catch(() => {});
-    alert(e.message);
-  }
+  } catch (e) { alert(e.message); }
 }
 
 async function removeMsg(id) {
@@ -220,13 +201,13 @@ export function renderChat() {
         <div id="chat-pad-mount" class="chat-pad-mount"></div>
         <div class="chat-draw-actions">
           <button class="ghost" id="chat-clear">Clear</button>
-          <button class="btn-spin" id="chat-upload">Upload — ₡20</button>
+          <button class="btn-spin" id="chat-upload">Upload</button>
         </div>
       </div>
       <div class="chat-input-row">
         <button class="ghost" id="chat-draw-btn" title="Draw">✎</button>
-        <button class="ghost chat-up-btn" id="chat-mp3-btn" title="Send an MP3 — ₡${MP3_COST}, unlocks at level ${MP3_LEVEL}">♪</button>
-        <button class="ghost chat-up-btn" id="chat-pic-btn" title="Send a picture — ₡${PIC_COST}, unlocks at level ${PIC_LEVEL}">▣</button>
+        <button class="ghost chat-up-btn" id="chat-mp3-btn" title="Send an MP3 (level ${MP3_LEVEL}+)">♪</button>
+        <button class="ghost chat-up-btn" id="chat-pic-btn" title="Send a picture (level ${PIC_LEVEL}+)">▣</button>
         <input type="file" id="chat-mp3-file" accept="audio/mpeg,.mp3" style="display:none">
         <input type="file" id="chat-pic-file" accept="image/*" style="display:none">
         <input id="chat-input" type="text" maxlength="${MAX_LEN}" placeholder="Say something…" autocomplete="off">

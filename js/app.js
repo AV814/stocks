@@ -406,8 +406,8 @@ function render() {
   else if (view === "predict") predictions.renderPredictions();
   else if (view === "chat") chat.renderChat();
   else if (view === "work") work.renderWork();
-  if (view !== "work") work.stop();   // pause snake instead of letting it die offscreen
   else if (view === "admin") predictions.renderAdmin();
+  if (view !== "work") work.stop();   // pause snake instead of letting it die offscreen
 }
 
 /* ---------- market list ---------- */
@@ -484,7 +484,7 @@ function renderStock() {
     <div class="tf-row">${Object.keys(TFS).map((k) =>
       `<button data-tf="${k}" class="${k === chartTf ? "active" : ""}">${k}</button>`).join("")}</div>
     <canvas id="chart"></canvas>
-    ${st.dead ? `<p class="muted" style="margin-top:14px">This company went bankrupt. Positions are worthless. Pour one out.</p>` : `
+    ${st.dead ? `<p class="muted" style="margin-top:14px">This company is bankrupt. Positions are worth ₡0.</p>` : `
     <div class="trade-box">
       <input id="qty" type="number" min="1" step="1" placeholder="Shares" value="1">
       <button class="btn-buy" id="btn-buy">Buy</button>
@@ -561,9 +561,9 @@ function renderPortfolio() {
     const st = findStock(tk);
     const dead = !st || st.dead;
     const p = dead ? 0 : engine.price(st, now) || 0;
-    return `<div class="mkt-row" data-tk="${dead ? "" : tk}">
+    return `<div class="mkt-row ${dead ? "pf-dead" : ""}" data-tk="${dead ? "" : tk}" ${dead ? `data-clear="${tk}" title="Click to remove this bankrupt position"` : ""}>
       <div class="tk">${abbr(tk)}${dead ? '<span class="dead-tag">DELISTED</span>' : ""}</div>
-      <div class="co">${sh} share${sh === 1 ? "" : "s"}</div>
+      <div class="co">${sh} share${sh === 1 ? "" : "s"}${dead ? " · click to clear" : ""}</div>
       <div class="px">${fmt(p)}</div>
       <div class="chg">${fmt(sh * p)}</div><div></div>
     </div>`;
@@ -578,11 +578,28 @@ function renderPortfolio() {
       <h3 class="sec" style="margin:0">Positions</h3>
       ${holdings.length ? `<button class="ghost danger" id="pf-sell-all">Sell everything</button>` : ""}
     </div>
-    ${rows || `<p class="muted">No positions yet. Hit the Exchange tab and buy something reckless.</p>`}`;
+    ${rows || `<p class="muted">No positions.</p>`}`;
   $("#view-portfolio").querySelectorAll(".mkt-row[data-tk]").forEach((r) => {
     if (r.dataset.tk) r.addEventListener("click", () => { openTicker = r.dataset.tk; renderStock(); });
   });
   $("#pf-sell-all")?.addEventListener("click", sellAll);
+  $("#view-portfolio").querySelectorAll("[data-clear]").forEach((r) =>
+    r.addEventListener("click", () => clearDeadPosition(r.dataset.clear)));
+}
+
+async function clearDeadPosition(tk) {
+  if (!me || !myDoc) return;
+  if (!confirm(`Remove ${tk} from your portfolio? The shares are worthless.`)) return;
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "users", me.uid);
+      const snap = await tx.get(ref);
+      const h = { ...(snap.data().holdings || {}) };
+      delete h[tk];
+      tx.update(ref, { cash: snap.data().cash, holdings: h });
+    });
+    toast("PORTFOLIO", `${tk} position removed`);
+  } catch (e) { alert(e.message); }
 }
 
 async function sellAll() {
@@ -596,7 +613,7 @@ async function sellAll() {
   if (!lines.length) return;
   const total = Math.round(lines.reduce((a, l) => a + l.value, 0) * 100) / 100;
   const summary = lines.map((l) => `${l.sh} ${l.tk} ${l.px ? "@ " + fmt(l.px) : "(delisted, worthless)"}`).join("\n");
-  if (!confirm(`Sell every position at market?\n\n${summary}\n\nProceeds: ${fmt(total)}`)) return;
+  if (!confirm(`Sell all positions at market price?\n\n${summary}\n\nProceeds: ${fmt(total)}`)) return;
   try {
     await runTransaction(db, async (tx) => {
       const ref = doc(db, "users", me.uid);
@@ -850,7 +867,7 @@ function renderLeaderboard() {
         return `<div class="lb-tip-row"><span>${escHtml(tk)}</span><span>${sh} sh</span><span>${px !== null ? fmt(sh * px) : "delisted"}</span></div>`;
       }).join("");
     const gs = u.gameStats || {};
-    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["scratch","Scratchers"],["keno","Keno"],["lotto","Powerball"],["poker","Poker"],["craps","Craps"],["mines","Minesweeper"],["snake","Snake"],["hack","Hack"],["pipes","Pipes"],["intrusion","Intrusion"]]
+    const gameRows = [["slots","Slots"],["blackjack","Blackjack"],["roulette","Roulette"],["keno","Keno"],["lotto","LWBall"],["poker","Poker"],["craps","Craps"],["mines","Minesweeper"],["snake","Snake"],["pipes","Pipes"]]
       .filter(([k]) => gs[k])
       .map(([k, label]) => `<div class="lb-tip-row"><span>${label}</span><span></span><span>${gs[k].toLocaleString("en-US")}</span></div>`).join("");
     const tip = `<div class="lb-tip">

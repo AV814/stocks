@@ -45,7 +45,6 @@ async function payWork(game, amount, what) {
       tx.update(ref, { cash: Math.round(((u.cash || 0) + paid) * 100) / 100, work: w });
       workLocal = w;
     });
-    const JOB = { mines: "MINESWEEPER", snake: "SNAKE", hack: "HACK", pipes: "PIPES", intrusion: "TYPING" };
     if (paid > 0) api.toast(JOB[game] || "WORK", `+${api.fmt(paid)} received${capped ? " (daily cap reached)" : ""}`);
     else api.toast("Limit Hit", `Daily max profit already reached`);
   } catch (e) { console.error("payWork failed", e); }
@@ -244,88 +243,13 @@ function snHtml() {
       <button data-sd="0">▲</button>
       <div><button data-sd="3">◀</button><button data-sd="2">▼</button><button data-sd="1">▶</button></div>
     </div>
-    <div class="casino-msg" id="sn-msg">${snake?.dead ? `Crashed at ${snake.score} pellets.` : snake?.waiting ? "Press a direction to begin." : active ? "Arrows / WASD / pad." : "Eat pellets, don't eat walls or yourself."}</div>`;
+    <div class="casino-msg" id="sn-msg">${snake?.dead ? `Game over — ${snake.score} pellets.` : snake?.waiting ? "Press a direction to begin." : active ? "Arrows / WASD / pad." : "Eat pellets to earn. Avoid walls and your own tail."}</div>`;
 }
 document.addEventListener("keydown", (e) => {
   if (mode !== "snake" || !snake || snake.dead) return;
   const map = { ArrowUp: 0, w: 0, ArrowRight: 1, d: 1, ArrowDown: 2, s: 2, ArrowLeft: 3, a: 3 };
   if (e.key in map) { e.preventDefault(); snTurn(map[e.key]); }
 });
-
-/* ================= HACK =================
-   Fallout-style terminal. Twelve candidate passwords buried in
-   hex noise; four attempts; each wrong guess reports likeness
-   (letters correct AND in position). Crack it for ₡30 + ₡20 per
-   attempt remaining. */
-
-const HACK_WORDS = ("TRADING,MARKETS,CAPITAL,DIVIDEND,FUTURES,OPTIONS,LEDGER,BROKER,MARGIN,TICKER," +
-  "HOLDING,BULLISH,BEARISH,CRASHES,RALLIES,VOLUMES,SPREADS,HEDGING,SHORTED,CORNERS," +
-  "NETWORK,SYSTEMS,ACCESS,CIPHERS,ENCRYPT,DECODED,FIREWALL,MONITOR,CONSOLE,UPLINKS," +
-  "PROGRAM,ROUTINE,KERNELS,BUFFERS,STACKED,THREADS,SOCKETS,PACKETS,DAEMONS,SCRIPTS").split(",");
-const HEX_JUNK = "!@#$%^&*()_+-=[]{};:<>?/\\|~";
-let hack = null;  // { pw, words, tries, log[], done, won, locked }
-
-function hkLikeness(a, b) { let n = 0; for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] === b[i]) n++; return n; }
-function hkNew() {
-  const pool = [...HACK_WORDS].sort(() => Math.random() - 0.5).slice(0, 12);
-  hack = { pw: pool[Math.floor(Math.random() * pool.length)], words: pool, tries: 4, log: [], done: false };
-  hkPrint("LW INDUSTRIES (TM) TERMALINK PROTOCOL");
-  hkPrint("ENTER PASSWORD NOW — 4 ATTEMPT(S) LEFT");
-  hkPrint("&nbsp;");
-}
-function hkPrint(line) { hack.log.push(line); }
-function hkGuess(word) {
-  if (!hack || hack.done) return;
-  word = word.toUpperCase().trim();
-  if (!hack.words.includes(word)) { hkPrint(`> ${esc(word)}`); hkPrint(">>> UNRECOGNIZED ENTRY"); renderWork(); return; }
-  hkPrint(`> ${esc(word)}`);
-  if (word === hack.pw) {
-    hack.done = true; hack.won = true;
-    hkPrint(">>> EXACT MATCH");
-    hkPrint(">>> ACCESS GRANTED — TRANSFERRING FUNDS");
-    payWork("hack", 30 + 20 * (hack.tries - 1), `cracking the terminal with ${hack.tries - 1} attempt(s) to spare`);
-  } else {
-    hack.tries--;
-    hkPrint(`>>> ENTRY DENIED — LIKENESS = ${hkLikeness(word, hack.pw)}`);
-    if (hack.tries <= 0) {
-      hack.done = true;
-      hkPrint(">>> TERMINAL LOCKED");
-      hkPrint(`>>> PASSWORD WAS: ${hack.pw}`);
-    } else {
-      hkPrint(`>>> ${hack.tries} ATTEMPT(S) LEFT`);
-    }
-  }
-  renderWork();
-}
-function hkDumpHtml() {
-  // words scattered through junk, clickable
-  let out = "";
-  const junk = () => Array.from({ length: 4 + Math.floor(Math.random() * 8) },
-    () => HEX_JUNK[Math.floor(Math.random() * HEX_JUNK.length)]).join("");
-  hack.words.forEach((w, i) => {
-    const addr = "0x" + (0xF400 + i * 12).toString(16).toUpperCase();
-    out += `<div class="hk-line"><span class="hk-addr">${addr}</span> ${esc(junk())}<button class="hk-word" data-hw="${esc(w)}">${esc(w)}</button>${esc(junk())}</div>`;
-  });
-  return out;
-}
-function hkHtml() {
-  if (!hack) hkNew();
-  return `
-    ${capLine("hack")}
-    <div class="hk-term">
-      <div class="hk-cols">
-        <div class="hk-dump">${hack.dumpCache || (hack.dumpCache = hkDumpHtml())}</div>
-        <div class="hk-log" id="hk-log">${hack.log.map((l) => `<div>${l}</div>`).join("")}
-          ${hack.done ? "" : `<div class="hk-input-line">&gt;&nbsp;<input id="hk-input" maxlength="10" autocomplete="off" spellcheck="false"><span class="hk-cursor">█</span></div>`}
-        </div>
-      </div>
-    </div>
-    <div class="casino-msg">${hack.done
-      ? (hack.won ? "Access granted. Payroll transferred." : "Locked out. The password is burned — reboot for a new terminal.")
-      : "Click a password in the dump or type it. LIKENESS = letters correct and in position."}</div>
-    ${hack.done ? `<div class="casino-controls"><button class="btn-spin" id="hk-new">Reboot terminal</button></div>` : ""}`;
-}
-
 
 /* ================= PIPES =================
    BioShock-style hack, swap edition. The board is dealt from a
@@ -545,7 +469,7 @@ function ppHtml() {
   return `
     ${capLine("pipes")}
     <div class="ms-bar">
-      <span class="muted" style="font-size:12px" id="pp-status">${status || "Fluid incoming — swap pipes into place!"}</span>
+      <span class="muted" style="font-size:12px" id="pp-status">${status || "Swap pipes to connect inlet to outlet before the fluid arrives."}</span>
       ${(pipes.phase === "build" || pipes.phase === "flowing") && !pipes.fast ? `<button class="btn-spin" id="pp-valve" title="Confident? Send the fluid through at full pressure.">Open the valve</button>` : ""}
       <button class="ghost" id="pp-new">New board</button>
     </div>
@@ -557,120 +481,6 @@ function ppHtml() {
 }
 
 
-/* ================= INTRUSION =================
-   A different terminal hack: a countdown breach. Command strings
-   scroll in and you must type each one exactly before the timer
-   drains. Each cleared command banks a little money and adds a
-   sliver of time; a wrong char or a timeout ends the run. The
-   longer your streak, the faster they come. Green-on-black like
-   the password cracker, but it's a reflex/typing job. */
-
-const INTRUSION_WORDS = ("sudo,override,decrypt,node,bypass,ice,route,packet,spoof,mac," +
-  "flush,cache,inject,payload,trace,uplink,mount,daemon,purge,logs,crack,hash,open,socket," +
-  "kill,firewall,ping,subnet,dump,kernel,forge,token,tunnel,vpn,scan,ports,patch,exploit," +
-  "sever,cloak,signal,breach,vault,reroute,grid,disable,alarm,ghost,proxy,unlock,sector," +
-  "drain,buffer,hijack,thread,null,shell,root,binary").split(",");
-const INTRUSION_MAX_WORDS = 7;
-const inStageWords = (cleared) => Math.min(INTRUSION_MAX_WORDS, 1 + cleared);
-const inStageReward = (cleared) => Math.pow(2, Math.min(cleared, INTRUSION_MAX_WORDS - 1));  // 1,2,4…64, capped
-const inStageTime = (words) => 3000 + words * 1700;   // generous: ~4.7s for 1 word, ~14.9s for 7
-
-let intr = null;  // { active, target, typed, score, streak, deadline, dur, iv, over }
-
-function inNew() {
-  inStop();
-  intr = { active: false, over: false, target: "", typed: "", score: 0, streak: 0, deadline: 0, dur: 4700, iv: null };
-  renderWork();
-}
-function inStop() { if (intr?.iv) { clearInterval(intr.iv); intr.iv = null; } }
-function inNext() {
-  const words = inStageWords(intr.streak);
-  const pick = [];
-  while (pick.length < words) {
-    const w = INTRUSION_WORDS[Math.floor(Math.random() * INTRUSION_WORDS.length)];
-    if (!pick.includes(w)) pick.push(w);
-  }
-  intr.target = pick.join(" ");
-  intr.typed = "";
-  intr.dur = inStageTime(words);
-  intr.deadline = Date.now() + intr.dur;
-}
-function inStart() {
-  inStop();
-  intr = { active: true, over: false, target: "", typed: "", score: 0, streak: 0, dur: 4700, iv: null };
-  inNext();
-  intr.iv = setInterval(() => {
-    if (!intr.active) return;
-    if (Date.now() > intr.deadline) return inFail("TIMEOUT");
-    const bar = document.querySelector("#in-bar");
-    if (bar) bar.style.width = Math.max(0, (intr.deadline - Date.now()) / intr.dur * 100) + "%";
-  }, 60);
-  renderWork();
-}
-function inFail(why) {
-  inStop();
-  intr.active = false;
-  intr.over = true;
-  intr.failWhy = why;
-  if (intr.score > 0) payWork("intrusion", intr.score, `a ${intr.streak}-command breach`);
-  else renderWork();
-}
-function inType(ch) {
-  if (!intr || !intr.active) return;
-  const next = intr.typed + ch;
-  if (intr.target.startsWith(next)) {
-    intr.typed = next;
-    if (next === intr.target) {
-      const reward = inStageReward(intr.streak);            // ₡1 doubling per line, capped at 7 words / ₡64
-      intr.streak++;
-      intr.score += reward;
-      inNext();
-    }
-    inPaint();
-  } else {
-    inFail("SYNTAX ERROR");
-  }
-}
-function inBack() {
-  if (intr?.active && intr.typed) { intr.typed = intr.typed.slice(0, -1); inPaint(); }
-}
-function inPaint() {
-  const t = document.querySelector("#in-target");
-  if (t) t.innerHTML = intr.target.split("").map((c, i) =>
-    `<span class="${i < intr.typed.length ? "hit" : ""}">${c === " " ? "&nbsp;" : esc(c)}</span>`).join("");
-  const sc = document.querySelector("#in-score");
-  if (sc) sc.textContent = api.fmt(intr.score);
-
-}
-function inHtml() {
-  if (!intr) inNew();
-  return `
-    ${capLine("intrusion")}
-    <div class="hk-term in-term">
-      <div class="in-hud">
-        <span>BANKED: <b id="in-score">${api.fmt(intr.score)}</b></span>
-        <span>LINE ${intr.streak + 1} · ${inStageWords(intr.streak)} word${inStageWords(intr.streak) === 1 ? "" : "s"} · pays <b>${api.fmt(inStageReward(intr.streak))}</b></span>
-      </div>
-      ${intr.active ? `
-        <div class="in-timer"><div id="in-bar" class="in-bar"></div></div>
-        <div class="in-target" id="in-target">${intr.target.split("").map((c) => `<span>${c === " " ? "&nbsp;" : esc(c)}</span>`).join("")}</div>
-        <div class="in-hint">type it exactly — one wrong key trips the alarm</div>
-        <input id="in-input" autocomplete="off" spellcheck="false" autocapitalize="off" class="in-input" placeholder="type here">
-      ` : intr.over ? `
-        <div class="in-over">>>> ${intr.failWhy} — INTRUSION HALTED</div>
-        <div class="in-over">>>> ${intr.streak} COMMANDS CLEARED · ${api.fmt(intr.score)} BANKED</div>
-      ` : `
-        <div class="in-idle">>>> LW INDUSTRIES INTRUSION SUITE</div>
-        <div class="in-idle">>>> TYPE EACH LINE BEFORE THE BAR EMPTIES</div>
-        <div class="in-idle">>>> ONE MORE WORD PER LINE, DOUBLE THE PAY — ₡1 UP TO ₡64 AT 7 WORDS</div>
-        <div class="in-idle">>>> WRONG KEY = ALARM.</div>
-      `}
-    </div>
-    <div class="casino-controls" style="margin-top:12px">
-      <button class="btn-spin" id="in-start">${intr.active ? "Restart" : intr.over ? "Run again" : "Begin breach"}</button>
-    </div>`;
-}
-
 /* ================= RENDER ================= */
 export function renderWork() {
   const el = api.el();
@@ -681,13 +491,11 @@ export function renderWork() {
       <div class="casino-tabs">
         <button data-wmode="mines" class="${mode === "mines" ? "active" : ""}">Minesweeper</button>
         <button data-wmode="snake" class="${mode === "snake" ? "active" : ""}">Snake</button>
-        <button data-wmode="hack" class="${mode === "hack" ? "active" : ""}">Hack</button>
         <button data-wmode="pipes" class="${mode === "pipes" ? "active" : ""}">Pipes</button>
-        <button data-wmode="intrusion" class="${mode === "intrusion" ? "active" : ""}">Typing</button>
       </div>
     </div>
-    <div class="casino-panel ${mode === "hack" || mode === "intrusion" ? "hk-panel" : ""}">
-      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : mode === "hack" ? hkHtml() : mode === "pipes" ? ppHtml() : inHtml()}
+    <div class="casino-panel">
+      ${mode === "mines" ? msHtml() : mode === "snake" ? snHtml() : ppHtml()}
     </div>
     <p class="muted" style="font-size:12px;margin-top:12px">Honest wages, no house edge. Each job caps at ${api.fmt(DAY_CAP)} a day, resets midnight ET.</p>`;
 
@@ -695,7 +503,6 @@ export function renderWork() {
     b.addEventListener("click", () => {
       if (mode === "snake" && b.dataset.wmode !== "snake") snStop();
       if (mode === "pipes" && b.dataset.wmode !== "pipes" && pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
-      if (mode === "intrusion" && b.dataset.wmode !== "intrusion") inStop();
       mode = b.dataset.wmode;
       renderWork();
     }));
@@ -726,15 +533,6 @@ export function renderWork() {
   if (mode === "snake") snResume();
   if (snake) snDraw();
 
-  // hack
-  el.querySelectorAll("[data-hw]").forEach((b) =>
-    b.addEventListener("click", () => hkGuess(b.dataset.hw)));
-  el.querySelector("#hk-new")?.addEventListener("click", () => { hack = null; renderWork(); });
-  const hkIn = el.querySelector("#hk-input");
-  if (hkIn) {
-    hkIn.addEventListener("keydown", (e) => { if (e.key === "Enter" && hkIn.value.trim()) hkGuess(hkIn.value); });
-    if (mode === "hack") hkIn.focus();
-  }
   el.querySelectorAll("[data-pp]").forEach((c) => {
     const i = Number(c.dataset.pp);
     c.addEventListener("click", () => ppTap(i));
@@ -754,30 +552,14 @@ export function renderWork() {
   el.querySelector("#pp-new")?.addEventListener("click", ppNew);
   el.querySelector("#pp-valve")?.addEventListener("click", ppValve);
 
-  // intrusion
-  el.querySelector("#in-start")?.addEventListener("click", inStart);
-  const inIn = el.querySelector("#in-input");
-  if (inIn) {
-    inIn.focus();
-    inIn.addEventListener("keydown", (e) => {
-      if (e.key === "Backspace") { e.preventDefault(); inBack(); return; }
-      if (e.key.length === 1) { e.preventDefault(); inType(e.key.toLowerCase()); }
-    });
-    inIn.addEventListener("blur", () => { if (intr?.active) setTimeout(() => inIn.focus(), 0); });
-  }
-
-  const hkLog = el.querySelector("#hk-log");
-  if (hkLog) hkLog.scrollTop = hkLog.scrollHeight;
 }
 
 export function initWork(apiIn) {
   api = apiIn;
   return {
     renderWork,
-    busy: () => !!((snake && !snake.dead && !snake.waiting && snake.iv) || (intr && intr.active)),
     stop: () => {
       snStop();
-      inStop();
       if (pipes && pipes.phase !== "won" && pipes.phase !== "burst") { ppStop(); pipes = null; }
     }
   };

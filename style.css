@@ -766,7 +766,7 @@ header {
   border: 2px solid;
   border-color: var(--bev-dark) var(--bev-light) var(--bev-light) var(--bev-dark);
 }
-.chat-draw-side { display: flex; flex-direction: column; gap: 10px; justify-content: space-between; }
+.chat-draw-side { display: flex; flex-direction: column; gap: 8px; justify-content: flex-start; }
 .chat-palette { display: grid; grid-template-columns: repeat(4, 30px); gap: 5px; }
 .chat-swatch {
   width: 30px; height: 30px; padding: 0 !important;

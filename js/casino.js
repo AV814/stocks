@@ -878,10 +878,6 @@ async function crapsBet(kind) {
   renderCasino();
 }
 
-// map a face (1-6) to a cube rotation that puts it on top (top-down view)
-const DIE_ROT = {
-  1: [0, 0], 2: [-90, 0], 3: [0, 90], 4: [0, -90], 5: [90, 0], 6: [180, 0]
-};
 async function crapsRoll() {
   if (craps.rolling) return;
   if (!craps.bets.pass && !craps.bets.dont && !craps.bets.field) { alert("Place a bet first."); return; }
@@ -891,17 +887,24 @@ async function crapsRoll() {
   const d1 = 1 + Math.floor(Math.random() * 6);
   const d2 = 1 + Math.floor(Math.random() * 6);
   renderCasino();
-  // throw: extra full spins + slide, easing to the rolled faces up
-  requestAnimationFrame(() => {
-    [d1, d2].forEach((face, i) => {
-      const cube = document.querySelector(`#die-${i} .die-cube`);
-      const [rx, ry] = DIE_ROT[face];
-      if (cube) cube.style.transform =
-        `rotateX(${720 + rx}deg) rotateY(${(i ? -720 : 720) + ry}deg) rotateZ(${i ? 585 : -495}deg)`;
+  // 2D tumble: faces shuffle fast while the dice shake, then settle
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    const dt = Date.now() - t0;
+    [0, 1].forEach((i) => {
+      const el = document.querySelector(`#die-${i} .die-face2`);
+      if (!el) return;
+      const stop = i === 0 ? 850 : 1150;
+      const face = dt < stop ? 1 + Math.floor(Math.random() * 6) : (i === 0 ? d1 : d2);
+      el.innerHTML = diePips(face);
     });
-    document.querySelectorAll(".die").forEach((d) => d.classList.add("thrown"));
-  });
-  setTimeout(() => crapsResolve(d1, d2), 1250);
+    if (dt >= 1150) {
+      clearInterval(iv);
+      document.querySelectorAll(".die2").forEach((d) => d.classList.remove("shaking"));
+      crapsResolve(d1, d2);
+    }
+  }, 85);
+  requestAnimationFrame(() => document.querySelectorAll(".die2").forEach((d) => d.classList.add("shaking")));
 }
 
 async function crapsResolve(d1, d2) {
@@ -972,12 +975,8 @@ function diePips(face) {
     `<span class="pip ${P[face].includes(i) ? "on" : ""}"></span>`).join("");
 }
 function dieHtml(i, face) {
-  const [rx, ry] = DIE_ROT[face];
-  const faces = [
-    ["top", 1], ["bottom", 6], ["front", 2], ["back", 5], ["right", 3], ["left", 4]
-  ].map(([pos, f]) => `<div class="die-face die-${pos}">${diePips(f)}</div>`).join("");
-  return `<div class="die" id="die-${i}">
-    <div class="die-cube" style="transform:rotateX(${rx}deg) rotateY(${ry}deg)">${faces}</div>
+  return `<div class="die2 ${craps.rolling ? "shaking" : ""}" id="die-${i}">
+    <div class="die-face2">${diePips(face)}</div>
   </div>`;
 }
 

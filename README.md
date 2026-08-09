@@ -115,6 +115,13 @@ Work plays are counted in the same global and per-player stat counters as casino
 
 Pay credits into your XP bar (card at the top of Standings). The first level costs ₡1,000 and each level adds ₡200 to the next requirement. Standings rank by level first, then net worth within a level; each row shows current net worth plus a lifetime figure (net worth + everything invested in levels), so leveling never looks like losing money.
 
+## Levels unlock chat media & profile pictures
+
+- Everyone **draws** their profile picture: the avatar button opens a 50x50 pixel editor (palette, full-spectrum picker, seeded with your current drawing for edits). At **level 10** a photo-upload option appears in the same editor.
+- Chat gains two paid, level-gated upload buttons: **MP3 clips at level 3 for ₡10** (kept under ~700KB so they fit a message) and **pictures at level 7 for ₡25** (auto-compressed to fit). Costs charge like the doodle fee, with refund-on-failure. Enforced server-side: chat rules check the sender's stored level via a rules `get()`.
+- First place on Standings wears a gold ring and a ♛ above their avatar.
+- Craps dice are now 2D — flat faces that shake and tumble through random pips before settling.
+
 ## Craps
 
 Pass Line, Don't Pass (bar 12), and the one-roll Field (3-4-9-10-11 even, 2 and 12 double), with authentic come-out/point flow — line bets lock once a point is set, and the roll history strip tracks the table. The dice are real CSS 3D cubes on a tilted felt, thrown across the table with extra tumbling spins that ease out to the rolled faces. Wins settle when the dice stop, crash-safe.

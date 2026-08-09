@@ -97,14 +97,33 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 500
         && (
-          // a text message...
-          (request.resource.data.text.size() > 0 && !("img" in request.resource.data))
-          // ...or a small pixel doodle
+          // plain text
+          (request.resource.data.text.size() > 0
+            && !("img" in request.resource.data) && !("audio" in request.resource.data))
+          // pixel doodle (any level)
           || (
             "img" in request.resource.data
+            && !("upload" in request.resource.data)
             && request.resource.data.img is string
             && request.resource.data.img.size() <= 12000
             && request.resource.data.img.matches('data:image/png;base64,[A-Za-z0-9+/=]+')
+          )
+          // uploaded picture (level 7+)
+          || (
+            "img" in request.resource.data
+            && request.resource.data.upload == true
+            && request.resource.data.img is string
+            && request.resource.data.img.size() <= 300000
+            && request.resource.data.img.matches('data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+')
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= 7
+          )
+          // mp3 clip (level 3+)
+          || (
+            "audio" in request.resource.data
+            && request.resource.data.audio is string
+            && request.resource.data.audio.size() <= 1000000
+            && request.resource.data.audio.matches('data:audio/(mpeg|mp3);base64,[A-Za-z0-9+/=]+')
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.level >= 3
           )
         );
       allow delete: if request.auth != null

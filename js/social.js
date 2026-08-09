@@ -67,11 +67,99 @@ async function fileToAvatar(file) {
 async function uploadAvatar(file) {
   const uid = api.me()?.uid;
   if (!uid || !file) return;
+  if ((api.myDoc()?.level || 0) < 10) { alert("Photo profile pictures unlock at level 10 — until then, you draw it."); return; }
   try {
     const data = await fileToAvatar(file);
     await updateDoc(doc(api.db, "users", uid), { avatar: data });
-    api.toast("Profile picture updated.");
+    api.toast("PROFILE", "Picture updated");
   } catch (e) { alert(e.message); }
+}
+
+/* Everyone draws their profile picture on a 50x50 card (photos are a
+   level-10 privilege). Same pixel tools as the chat pad, in a modal. */
+const PFP_PIX = 50;
+const PFP_PALETTE = ["#000000", "#ffffff", "#c0392b", "#e8a33d", "#e8d44d", "#5aa03c",
+  "#3aa6a6", "#3a6ea5", "#7d4fa5", "#d976a8", "#7a5230", "#8a9280"];
+let pfpColor = "#000000", pfpLast = null;
+
+function openPfpEditor() {
+  if (document.querySelector(".pfp-modal")) return;
+  const canPhoto = (api.myDoc()?.level || 0) >= 10;
+  const wrap = document.createElement("div");
+  wrap.className = "pfp-modal";
+  wrap.innerHTML = `
+    <div class="pfp-box">
+      <h3 class="sec" style="margin-top:0">Draw your profile picture</h3>
+      <canvas id="pfp-canvas" width="${PFP_PIX}" height="${PFP_PIX}"></canvas>
+      <div class="pfp-tools">
+        ${PFP_PALETTE.map((c) => `<button class="chat-swatch ${c === pfpColor ? "on" : ""}" data-pfpc="${c}" style="background:${c}"></button>`).join("")}
+        <input type="color" id="pfp-custom" value="${pfpColor}" title="Any color">
+      </div>
+      <div class="pfp-actions">
+        <button class="ghost" id="pfp-clear">Clear</button>
+        ${canPhoto ? `<button class="ghost" id="pfp-photo">Upload photo (L10 perk)</button>` : `<span class="muted" style="font-size:11px;align-self:center">Photo uploads unlock at level 10</span>`}
+        <button class="ghost" id="pfp-cancel">Cancel</button>
+        <button class="btn-spin" id="pfp-save">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const cv = wrap.querySelector("#pfp-canvas");
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, PFP_PIX, PFP_PIX);
+  // seed with the current drawn avatar so edits are possible
+  const cur = api.myDoc()?.avatar;
+  if (cur && /^data:image\/png/.test(cur)) {
+    const img = new Image();
+    img.onload = () => { if (img.width === PFP_PIX) ctx.drawImage(img, 0, 0); };
+    img.src = cur;
+  }
+  const px = (e) => {
+    const r = cv.getBoundingClientRect();
+    return { x: Math.floor((e.clientX - r.left) / r.width * PFP_PIX), y: Math.floor((e.clientY - r.top) / r.height * PFP_PIX) };
+  };
+  const plot = (x, y) => { if (x >= 0 && x < PFP_PIX && y >= 0 && y < PFP_PIX) { ctx.fillStyle = pfpColor; ctx.fillRect(x, y, 1, 1); } };
+  const line = (a, b) => {
+    let { x: x0, y: y0 } = a; const { x: x1, y: y1 } = b;
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      plot(x0, y0);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  };
+  cv.addEventListener("pointerdown", (e) => { e.preventDefault(); cv.setPointerCapture(e.pointerId); pfpLast = null; const p = px(e); plot(p.x, p.y); pfpLast = p; });
+  cv.addEventListener("pointermove", (e) => {
+    if (!(e.buttons & 1)) return;
+    const pts = (e.getCoalescedEvents?.() || [e]).map((ev) => px(ev));
+    for (const p of pts) { if (pfpLast) line(pfpLast, p); else plot(p.x, p.y); pfpLast = p; }
+  });
+  cv.addEventListener("pointerup", () => { pfpLast = null; });
+  wrap.querySelectorAll("[data-pfpc]").forEach((b) => b.addEventListener("click", () => {
+    pfpColor = b.dataset.pfpc;
+    wrap.querySelector("#pfp-custom").value = pfpColor;
+    wrap.querySelectorAll(".chat-swatch").forEach((x) => x.classList.toggle("on", x === b));
+  }));
+  wrap.querySelector("#pfp-custom").addEventListener("input", (e) => {
+    pfpColor = e.target.value;
+    wrap.querySelectorAll(".chat-swatch").forEach((x) => x.classList.remove("on"));
+  });
+  wrap.querySelector("#pfp-clear").addEventListener("click", () => { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, PFP_PIX, PFP_PIX); });
+  wrap.querySelector("#pfp-cancel").addEventListener("click", () => wrap.remove());
+  wrap.querySelector("#pfp-photo")?.addEventListener("click", () => { wrap.remove(); document.querySelector("#avatar-file")?.click(); });
+  wrap.querySelector("#pfp-save").addEventListener("click", async () => {
+    const uid = api.me()?.uid;
+    if (!uid) return;
+    try {
+      await updateDoc(doc(api.db, "users", uid), { avatar: cv.toDataURL("image/png") });
+      api.toast("PROFILE", "Picture updated");
+      wrap.remove();
+    } catch (e) { alert(e.message); }
+  });
 }
 
 /* ---------------- transfers ---------------- */
@@ -127,5 +215,5 @@ function unsubscribeTransfers() {
 
 export function initSocial(apiIn) {
   api = apiIn;
-  return { avatarHtml, uploadAvatar, sendMoney, subscribeTransfers, unsubscribeTransfers };
+  return { avatarHtml, uploadAvatar, openPfpEditor, sendMoney, subscribeTransfers, unsubscribeTransfers };
 }
